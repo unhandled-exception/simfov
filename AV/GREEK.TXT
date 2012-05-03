@@ -1,0 +1,28 @@
+
+         Greek     ASCII       Bs5
+        letter  equivalent     
+
+    1    Alpha       a         Alp
+    2    Beta        b         Bet
+    3    Gamma       g         Gam
+    4    Delta       d         Del
+    5    Epsilon     e         Eps
+    6    Zeta        z         Zet
+    7    Eta         h         Eta
+    8    Theta       q         The
+    9    Iota        i         Iot
+   10    Kappa       k         Kap
+   11    Lambda      l         Lam
+   12    Mu          m         Mu 
+   13    Nu          n         Nu 
+   14    Xi          j         Xi
+   15    Omicron     o         Omi
+   16    Pi          p         Pi
+   17    Rho         r         Rho
+   18    Sigma       s         Sig
+   19    Tau         t         Tau
+   20    Upsilon     u         Ups
+   21    Phi         f         Phi
+   22    Chi         x         Chi
+   23    Psi         v         Psi
+   24    Omega       w         Ome

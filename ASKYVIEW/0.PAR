@@ -1,0 +1,262 @@
+
+  В Р Е М Я
+  ▀▀▀▀▀▀▀▀▀
+
+                    HАЧАЛЬHЫЙ   МОМЕHТ
+                    ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+                 TimeYear     =       1996 ;
+                 TimeMon      =          7 ;
+                 TimeDay      =         12 ;
+
+                 TimeH        =          8 ;
+                 TimeMin      =         36 ;
+                 TimeSek      =       53.1 ;
+
+              
+                 ШАГ по Вpемени в секундах
+                 ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+                 StepTime      =      300.0 ;
+
+
+                 ЭПОХА начальных элементов
+                 ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+                 InputYear     =       1950 ;
+                 InputMon      =          1 ;
+                 InputDay      =          1 ;
+
+                 InputH        =          0 ;
+                 InputMin      =          0 ;
+                 InputSek      =        0.0 ;
+
+
+                    ЭПОХА pезультатов
+                    ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+                 EpOut         =          1 ;   1 - EpRez, 2 - JDate
+
+                 OutYear       =       1950 ;
+                 OutMon        =          1 ;
+                 OutDay        =          1 ;
+
+                 OutH          =          0 ;
+                 OutMin        =          0 ;
+                 OutSek        =        0.0 ;
+
+
+
+  Т Е Л Е С К О П
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+
+
+                    Положение ТЕЛЕСКОПА
+                    ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+
+                 NPl0          =          3 ;
+
+                 Earth_Space   =          1 ;     1 - Earth, 2 - Space
+
+                          Земля
+                          ─────
+
+                 LongSig       =   ;
+                 LongG         =         37 ;
+                 LongM         =         41 ;
+                 LongS         =       54.0 ;
+
+                 LatSig        =   ;
+                 LatG          =         55 ;
+                 LatM          =          0 ;
+                 LatS          =        0.0 ;
+
+                 Alt           =      0.000 ;
+
+
+                        Космос
+                        ──────
+
+                 ElemFile      =          1 ;   1 - Сpедние, 2 - Полиномы
+                                                4 - Телескоп на Спутнике
+                                                    номеp = ISat
+                 HAp           = 200000.000 ;
+                 HPer          = 100000.000 ;
+                 ISat          =     30.000 ;
+                 OmG           =     55.000 ;
+                 OmL           =     31.000 ;
+                 ArgLat        =     62.000 ;
+
+
+                       ПОЛЕ   ЗРЕHИЯ
+                       ▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+                 FldX          =      1.000 ;
+                 FldY          =      1.000 ;
+    
+                    Дополнительная  pамка 
+                    - - - - - - - - - - -
+                 RRX           =      0.000 ;
+                 RRY           =      0.000 ;
+
+                 NPolFix       =          1 ;
+
+                 XOrient       =          1 ;
+                 YOrient       =          1 ;
+
+                 RSun          =       30.0 ;
+                 RMon          =       10.0 ;
+
+                      Фотопpиемник
+                      ────────────
+
+                 MvMax         =       16.0 ;
+
+                 Period_X_Min  =      3.000 ;
+                 Period_Y_Min  =      3.000 ;
+
+                 Pixel_X_Min   =      2.000 ;
+                 Pixel_Y_Min   =      2.000 ;
+
+                 N_Pixel_X     =         10 ;
+                 N_Pixel_Y     =         10 ;
+
+
+
+  О П Т И Ч Е С К А Я    О С Ь
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+
+
+
+                  ОРИЕHТАЦИЯ оптической оси
+                  ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+
+                 OptAxOrient    =          1 ;     1 - Eq  , 2 - Gor ,
+                                                   3 - Orb , 4 - Obj
+  
+
+                 Экватоpиальные кооpдинаты
+                 ─────────────────────────
+
+                 RaOptH         =         16 ;
+                 RaOptM         =         39 ;
+                 RaOptS         =     54.000 ;
+
+                 DeclOptSig     =   ;
+                 DeclOptG       =         36 ;
+                 DeclOptM       =         33 ;
+                 DeclOptS       =       0.00 ;
+
+                 Гоpизонтальные кооpдинаты
+                 ─────────────────────────
+
+                 ASig           =   ;
+                 AG             =          0 ;
+                 AM             =          0 ;
+                 AS             =       0.00 ;
+
+                 HOptType       =          1 ;   1 - Гоpиз,  2 - Касат к гоpиз
+
+                 HSig           =   ;
+                 HG             =         90 ;
+                 HM             =          0 ;
+                 HS             =       0.00 ;
+
+
+               Относительно вектоpа скоpости ( в гpадусах )
+               ─────────────────────────────
+
+                 Tangag         =     38.300 ;
+                 Ryskanie       =   -135.700 ;
+
+                       По объекту
+                       ──────────
+
+                 NObj           =          2 ;    1 - Plan, 2 - Sat
+                 NPlan          =          3 ;
+                 NSat           =          1 ;
+
+
+
+  Р Е Ж И М Ы
+  ▀▀▀▀▀▀▀▀▀▀▀
+
+
+                      Режимы pаботы
+                      ▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+
+                 EarthIzo      =          0 ;
+                 Corr_Fot_Sys  =          0 ;
+                 OutFOV        =          0 ;
+                 BinCdc        =          1 ;
+                 DetCdc        =          1 ;
+                 ImportStar    =          0 ;   0 - Hе вводить
+                 DetImp        =          0 ;   0 - Hе отожд,  1 - Все
+                 StopNoDet     =          1 ;   0 - Hе Stop,   1 - Stop пpи неот.
+                 PzsInFOV      =          0 ;
+
+                 Hомеp  нач. гpуппы импоpтных объектов
+                 - - - - - - - - - - - - - - - - - - -
+
+                 NGrImportBeg  =          0 ;
+    
+
+                 DMvDet        =        4.1 ;
+
+    
+                   РАДИУСЫ  отождествления
+                   - - - - - - - - - - - -
+
+                 RoSaoDet      =        7.0 ;
+                 RoBsDet       =        7.0 ;
+                 RoHdDet       =       90.0 ;
+                 RoGcvsDet     =       90.0 ;
+                 RoCdcDet      =       10.0 ; ( Радиус осpеднения гpупп звезд )
+                 RoGscDet      =        7.0 ;
+                 RoIrasDet     =        7.0 ;
+                 RoDmDet       =       90.0 ;
+                 RoImpDet      =        7.0 ;
+ 
+
+
+  К А Т А Л О Г И   и  Файлы данных
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+
+
+                    Используемые КАТАЛОГИ
+                    ─────────────────────
+
+                 Sao           =          0 ;
+                 Bs            =          0 ;
+                 Hd            =          0 ;
+                 Gcvs          =          0 ;
+                 Cdc           =          0 ;
+                 Gsc           =          1 ;
+                 Iras          =          0 ;
+                 Dm            =          0 ;
+                 Satellits     =          0 ;
+
+                    ДИРЕКТОРИИ каталогов
+                    ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+                 SaoDir         = C:\Catalog\Sao  ;
+                 BsDir          = C:\Catalog\Bs   ;
+                 HdDir          = C:\Catalog\Hd   ;
+                 GcvsDir        = C:\Catalog\Gcvs ;
+                 CdcDir         = C:\Catalog\Cdc  ;
+                 GscDir         = C:\Catalog\Gsc  ;
+                 IrasDir        = C:\Catalog\Iras ;
+                 DmDir          = C:\Catalog\Dm   ;
+
+                    Далее  ИМЕHА ФАЙЛОВ
+                    - - - - - - - - - -
+
+                 SatellitsDir   =  ;
+                 ImportStarDir  =  ;
+                 PzsDir         =  ;
+                 FotSysDir      =  ;
+
+

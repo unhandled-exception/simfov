@@ -1,0 +1,1172 @@
+
+{$O+,F+}
+
+Unit PPLPRO;
+Interface
+
+Uses
+
+   PVar, PVarMenu ;
+
+
+
+  Procedure  PLPRO (     BEfem        : Boolean     ;
+                         JD , JDREZ   : Double      ;
+                         NPl0         : Integer     ;
+                         X0, Y0, Z0   : Double      ;
+                         NPL1         : Integer     ;
+                     Var RezPl        : REZARRAY    ;
+                     Var RectCoordPl  : PlCoordType ;
+                     Var PhaseMoon    : Double      ;
+                     Var PhaseEarth   : Double        ) ;
+
+
+IMPLEMENTATION
+
+Uses
+
+   CRT,
+   PJD8,
+   PATan2,
+   PPrenXYZ,
+   PMERK,
+   PVENERA,
+   PSol,
+   PMARS,
+   PJUP,
+   PSATJUP,
+   PSAT,
+   PURAN,
+   PNEPT,
+   PPLU,
+   PMONDIA,
+   {
+   PMAGN,
+   }
+   PNutNew,
+   PDE200  ;
+
+
+  Procedure  PLPRO (     BEfem        : Boolean     ;
+                         JD , JDREZ   : Double      ;
+                         NPl0         : Integer     ;
+                         X0, Y0, Z0   : Double      ;
+                         NPL1         : Integer     ;
+                     Var RezPl        : REZARRAY    ;
+                     Var RectCoordPl  : PlCoordType ;
+                     Var PhaseMoon    : Double      ;
+                     Var PhaseEarth   : Double        ) ;
+
+
+{*
+
+      INPUT :    BEfem    Момент в эфемеpидном вpемени
+                    JD    МОМЕНТ ВРЕМЕНИ
+	     	 JDREZ    ЭПОХА РЕЗУЛЬТАТА
+		 RezPl    МАССИВ ВЫЧИСЛЕННЫХ КООРАИНАТ
+                  NOL0    НОМЕР ПЛАНЕТЫ С НАБЛЮДАТЕЛЕМ
+                  X0,
+                  Y0,
+                  Z0      Планетоцентpические кооpдинаты наблюдателя в АЕ
+                  NPL1    НОМЕР ВЫЧИСЛЯКМОЙ ПЛАНЕТЫ ( 0 - ВСЕ ПЛАНЕТЫ )
+
+	OUTPUT:   GEOCENTRIC  EQUATORIAL COORDINATES And
+	──────	  VISUAL MAGNITUDES Of PLANETS , DIFFERENTIAL
+		  EQUATORIAL COORDINATES And VISUAL MAGNITUDES
+		  Of JUPITER SATELITES,  MOON PHASES (IN Grad).
+
+
+*}
+
+
+
+  Const
+
+
+	Diam : Array [ 1..15 ] Of Double = ( 3.36,  8.34,  8.79418,
+					      4.68, 98.41, 83.28,
+                                             32.45, 30.78,  9.67 ,
+                                              2.3963, 959.63,
+                                              1.627, 2.041, 3.585, 3.254 ) ;
+
+	RMSATJ	: Array [ 1..4 ] Of Double = ( 5.02 , 5.29 , 4.61 , 5.65 ) ;
+
+        DTE : Array [ 0 .. 10 ] Of Single =
+        ( -2.7, 10.5, 21.2, 24.0, 24.3, 29.2, 33.2, 40.2, 50.5, 57.2, 70 ) ;
+
+
+ Label
+
+       1001,
+       1006,
+       1026;
+
+
+  Var
+
+
+        CalcPlDE200                             : Boolean ;
+
+	XSJ, YSJ, DRSJ				: CoordArray  ;
+
+        X,  Y,  Z,
+        Vx, Vy, Vz,
+        RM, RL, RB, R                           : Array [ 1..15 ] Of Double ;
+
+        INPl0,
+        NNPl0                                   : Integer ;
+
+
+        IPLBEG, IPLEND,
+	IY, IM, NJDTEK, NJTEK, II, HH, MM,
+	IPL, NPl, NPLM, JAB, JAbMax, IFF, MONF	: LongInt ;
+
+
+	JdPl, Tau,
+	PI2, DAY, PAR,
+	XBaric, YBaric, ZBaric, RBaric,
+	XSolBaric, YSolBaric, ZSolBaric,
+	XSol, YSol, ZSol,
+        XS , YS , ZS , RS ,
+        Xe, Ye, Ze,
+        Xq, Yq, Zq,
+        XS0, YS0, ZS0, RS0,
+        XM,  YM,  ZM,
+        VXM, VYM, VZM,
+        RPlSol,
+        Mc, C, Au,
+	RLSol, RBSol, RSol,
+	XSolN, YSolN, ZSolN,
+	XX, YY, ZZ, RLDL, RDL, DRLS,
+	UGOL, SU, CU, XSAT, YSAT,
+	CA, SA, TRA, SD, CD,
+	Ra, Decl, SP, CP, PP, SF, CF, SI,
+	XSPN, YSPN, ZSPN, RLPL, RP, RPE,
+        R0PL, Phase,
+        E, P, Q,
+        VxB, VyB, VzB,
+	XpN, YpN, ZpN, JDE,
+        DrSatJup, DRaSatJup, DDeclSatJup,
+        DxSatJup, DySatJup, DzSatJup,
+        SRaJup, CRaJup, SDeclJup, CDeclJup,
+        XJup, YJup, ZJup, RJup,
+        VxS, VyS, VzS,
+        Vxx, Vyy, Vzz,
+        RRab,
+        Cc, Ff, Ss,
+        T , Eps, L,
+        OM, L1, F, D,
+        DPsi, DEps,
+        SEpsM, CEpsM,
+        SEpsT, CEpsT,
+        SDPsi, CDPsi                             : Double ;
+
+
+   Procedure MAGN (     N                        : Integer     ;
+		        RP, RPE, RE, JD, X, Y, Z : Double        ;
+		    Var RM                       : Double      ) ;
+
+{
+		wy~islenie  zwezdnyh  weli~in  planet
+		─────────────────────────────────────
+
+
+		w h o d :
+		───────
+
+	N     -	nomer planety
+	RP    -	geliocentri~eskoe rasstoqnie planety
+	RPE   -	rasstoqnie planeta  - teleskop
+	RE    -	geliocentri~eskoe rasstoqnie teleskopa
+	JD    -	`lianskaq data
+	X,Y,Z - prqmougolxnye geocentri~eskie k-ty planety
+
+
+		w y h o d :
+		─────────
+
+	RM   -	zwezdnaq weli~ina planety
+}
+
+
+ Type AR = Array [ 1 .. 15 ] Of Double;
+
+ Var
+
+	P , F , R1, R2, R3, SA, CA, SD, CD, RN 	: Double ;
+
+
+ Const
+
+	RM0 : AR = ( -0.38, -4.41, -3.9, -1.51, -9.40, -8.88, -7.19, -6.87, -1.0, 0.23, -26.7, -1.9, -1.5, -2.2, -1.2  );
+        CF1 : AR = (  0.0380, 0.01314,   0.0,  0.01486, 0.0, 0.0, 0.0, 0.0, 0.0, 0.026, 0.0, 0.04, 0.03, 0.03, 0.07 );
+	AF1 : AR = (  0.0,               0.0,      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 );
+	CF2 : AR = ( -0.000273,          0.0,      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 );
+	AF2 : AR = (  0.0,               0.0,      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 );
+	CF3 : AR = (  0.000002, 0.0000004351,      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 );
+        {
+	RM0 : AR = ( 1.16, -4.0 ,-3.9, -1.3, -8.93, -8.68, -6.85, -7.05, -1.0, 0.23, -26.7, -1.9, -1.5, -2.2, -1.2  );
+	CF1 : AR = ( 0.02838, 0.01322, 0.014, 0.01486, 0.0, 0.0, 0.0, 0.0, 0.0, 0.026, 0.0, 0.04, 0.03, 0.03, 0.07 );
+	AF1 : AR = ( -50.0,             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 );
+	CF2 : AR = ( 0.0001023,         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 );
+	AF2 : AR = ( -50.0,             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 );
+	CF3 : AR = ( 0.0, 0.0000004247, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 );
+        }
+ Begin
+
+        If ( N = 11 )
+          Then
+
+            Begin
+
+	      RM := RM0 [ N ] + 5.0 * Ln ( RPE ) / 2.30259;
+
+            End
+          Else
+            Begin
+
+
+
+              { zawisimostx ot rasstoqnij }
+	      { ───────────────────────── }
+
+
+	      RM := RM0 [ N ] + 5.0 * LN ( RP * RPE ) / 2.30259;
+
+
+
+	      { zawisimomtx ot fazy }
+	      { ─────────────────── }
+
+              F := Phase * Rg ;
+
+	      RM := RM + CF1 [ N ] * ( F + AF1 [ N ] );
+	      RM := RM + CF2 [ N ] * ( F + AF2 [ N ] ) * ( F + AF2 [ N ] );
+	      RM := RM + CF3 [ N ] *   F * F * F;
+
+	      If ( N = 6 )  Then
+	        Begin
+
+                  { эффект кольца Сатуpна }
+                  { ───────────────────── }
+
+                  R1 := ( JD - 2433282.42 ) / 36524.22;
+		  RN := 2.241289 + 0.073827 * R1
+                                 + 0.004086 * R1 * R1
+                                 + 0.000185 * R1 * R1 * R1  ;
+
+		  R2 := 0.116756 - 0.007613 * R1 + 0.000224 * R1 * R1;
+		  R3 := COS ( RN );
+
+		  SD := Z / RPE;
+		  CD := SQRT ( 1.0 - SD * SD );
+		  CA := RPE * CD;
+		  SA := Y / CA;
+		  CA := X / CA;
+
+		  R3 := - COS ( R2 ) * SD
+                        + SIN ( R2 ) * CD *
+                              ( SA * R3 - CA * SQRT ( 1.0 - R3 * R3 ));
+
+                  RM := RM - 2.60  * ABS ( R3 )
+                           + 1.25  * R3 * R3
+                           + 0.044 * ABS ( F )  ;
+
+	      End;
+
+          End;
+
+ End;
+
+
+
+
+  Begin
+
+
+      au  := 149597870660.0 ;
+      c   := 299792458.0 * 86400.0 / au ;
+      Mc  := 2 * 9.87e-9 ;
+
+
+     If ( CalcPlDE200 )
+       Then  JAbMax := 2
+       Else  JAbMax := 2 ;
+
+
+     JDE    := JD  ;
+
+        { TDB }
+
+     RRab := ( 357.528 + 35999.050 * ( Jd - 2451545.0 ) / 36525.0 ) * Gr ;
+     RRab := 0.001658 * Sin ( RRab + 0.0167 * Sin ( RRab ) ) ;
+     JdE  := JdE + RRab / 86400 ;
+
+
+
+         { Пеpеход к пpиближенному эфемеpидному вpемени  }
+         { ───────────────────────────────────────────── }
+
+     If ( Not BEfem )  Then
+       Begin
+
+         Tau := ( JD - 2415020.5 ) / 36525 ;
+
+         If ( Tau < 0 ) Or ( Tau > 0.99 )
+           Then
+               JDE := JD + ( 0.41 + 1.2053 * Tau +
+                                    0.4992 * Tau * Tau ) / 1440
+           Else
+             Begin
+
+               Tau := Tau * 10 ;
+               II  := Trunc ( Tau ) ;
+               JDE := DTE [ II ] + ( Tau - II ) * ( DTE [ II + 1 ] - DTE [ II ] );
+
+               If ( Param.TimeYear = 1997 )  Then
+                 JdE := 63.184 ;
+
+               If ( Param.TimeYear = 1998 )  Then
+                 JdE := 63.184 ;
+
+               JDE  := JD + JDE / 86400 ; { 0h UTC }
+
+             End ;
+
+       End ; { BEfem }
+
+
+     {
+     If ( BOlValMenu )  Then
+       JdE := JdE + Frac ( JdE ) * JdE ;
+     }
+
+
+     If (     ( FlagDE200BufAlloc       )
+          And ( JDE > JdBegDE200 + 0.25 )
+          And ( JDE < JdEndDE200        )  )
+           Then
+                CalcPlDE200 := True
+           Else
+                CalcPlDE200 := False ;
+
+
+     PI2   := PI + PI ;
+     NJTEK := 0 ;
+     R0PL  := Sqrt (  Sqr ( X0 ) + Sqr ( Y0 ) + Sqr ( Z0 )  ) ;
+
+     If ( NPL1 = 0 )  Then
+          Begin
+            IPLBEG :=  1 ;
+            IPLEND := 11 ;
+          End
+        Else
+          Begin
+            IPLBEG := NPL1;
+            IPLEND := NPL1;
+          End;
+    {
+    For IPL := IPLBEG  To  IPLEND  Do
+      Begin
+
+        JdPl := JdE ;
+        NPl  := IPl ;
+
+        If (     ( NPl  = NPl0   )
+             And ( R0PL < 1.0E-7 ) )  Then
+          GoTo 1026 ;
+    }
+        Tau := 0.0 ;
+
+
+        If  ( NPl0 <> 3 )
+          Then  JAbMax := 1
+          Else  JAbMax := 2 ;
+
+
+        JdPl := JdE ;
+
+
+        If ( NPl0 = 3 )
+          Then
+            Begin
+              NNpl0 := 1 ;
+            End
+          Else
+            Begin
+              NNpl0 := 2 ;
+              If ( CalcPlDE200 )
+                Then
+                  DE200 ( 3, JdPl,  RSol, XE, YE, ZE, Vxx, Vyy, Vzz )
+                Else
+                  Begin
+                    Sol  ( JdPl, JDREZ, RLSol, RBSol, RSol, XE, YE, ZE ) ;
+                    XE := - XE ;
+                    YE := - YE ;
+                    ZE := - ZE ;
+                  End ;
+            End ;
+
+
+
+        For INPl0 := 1 To NNPl0 Do
+         Begin
+
+          Case NPl0 Of
+
+	  1: If ( CalcPlDE200 )
+               Then
+                 DE200 ( 1, JdPl,  RSol, XS, YS, ZS, Vxx, Vyy, Vzz )
+               Else
+                 MERK    ( JdPl, JDREZ, RLSol, RBSol, RSol, XS, YS, ZS ) ;
+
+          2: If ( CalcPlDE200 )
+               Then
+                 DE200 ( 2, JdPl,  RSol, XS, YS, ZS, Vxx, Vyy, Vzz )
+               Else
+                 VENERA  ( JdPl, JDREZ, RLSol, RBSol, RSol, XS, YS, ZS ) ;
+
+          3: Begin
+               If ( CalcPlDE200 )
+                 Then
+                 DE200 ( 3, JdPl,  RSol, XS, YS, ZS, Vxx, Vyy, Vzz )
+                 Else
+                   Begin
+                     Sol  ( JdPl, JDREZ, RLSol, RBSol, RSol, XS, YS, ZS ) ;
+                     XS := - XS ;
+                     YS := - YS ;
+                     ZS := - ZS ;
+                   End ;
+             End ;
+
+          4: If ( CalcPlDE200 )
+               Then
+                 DE200 ( 4, JdPl,  RSol, XS, YS, ZS, Vxx, Vyy, Vzz )
+               Else
+                 MARS  ( JdPl, JDREZ, RLSol, RBSol, RSol, XS, YS, ZS )  ;
+
+          5: If ( CalcPlDE200 )
+               Then
+                 DE200 ( 5, JdPl,  RSol, XS, YS, ZS, Vxx, Vyy, Vzz )
+               Else
+                 JUP  ( JdPl, JDREZ, RLSol, RBSol, RSol, XS, YS, ZS )  ;
+
+          6: If ( CalcPlDE200 )
+               Then
+                 DE200 ( 6, JdPl,  RSol, XS, YS, ZS, Vxx, Vyy, Vzz )
+               Else
+                 SAT  ( JdPl, JDREZ, RLSol, RBSol, RSol, XS, YS, ZS )  ;
+
+          7: If ( CalcPlDE200 )
+               Then
+                 DE200 ( 7, JdPl,  RSol, XS, YS, ZS, Vxx, Vyy, Vzz )
+               Else
+                 URAN  ( JdPl, JDREZ, RLSol, RBSol, RSol, XS, YS, ZS )  ;
+
+          8: If ( CalcPlDE200 )
+               Then
+                 DE200 ( 8, JdPl,  RSol, XS, YS, ZS, Vxx, Vyy, Vzz )
+               Else
+                 NEPT  ( JdPl, JDREZ, RLSol, RBSol, RSol, XS, YS, ZS )  ;
+
+          9: If ( CalcPlDE200 )
+               Then
+                 DE200 ( 9, JdPl,  RSol, XS, YS, ZS, Vxx, Vyy, Vzz )
+               Else
+                 PLU   ( JdPl, JDREZ, RLSol, RBSol, RSol, XS, YS, ZS )  ;
+
+         10: Begin
+               If ( CalcPlDE200 )
+                 Then
+                   Begin
+                     DE200 (  3, JdPl,  RSol, XS, YS, ZS, Vxx, Vyy, Vzz ) ;
+                     DE200 ( 10, JdPl,  R[10], X[10], Y[10], Z[10], Vxx, Vyy, Vzz  ) ;
+                     XS :=  XS + X [ 10 ] ;
+                     YS :=  YS + Y [ 10 ] ;
+                     ZS :=  ZS + Z [ 10 ] ;
+                  End
+                Else
+                  Begin
+                    Sol    ( JdPl, JDREZ,  RLSol, RBSol, RSol, XS, YS, ZS ) ;
+                    MONDIA ( JdPl, JDREZ, RL[10], RB[10], R[10],
+                                           X[10],  Y[10], Z[10] );
+                    XS := - XS + X [ 10 ] ;
+                    YS := - YS + Y [ 10 ] ;
+                    ZS := - ZS + Z [ 10 ] ;
+                  End ;
+             End ;
+
+         11: Begin
+               If ( CalcPlDE200 )
+                 Then
+                    DE200 ( 11, JdPl,  RSol, XS, YS, ZS, Vxx, Vyy, Vzz )
+                 Else
+                   Begin
+                     XS  := 0.0 ;
+                     YS  := 0.0 ;
+                     ZS  := 0.0 ;
+                   End ;
+             End ;
+
+
+          End ;  { Case }
+
+
+
+          Xs := Xs - Xe ;
+          Ys := Ys - Ye ;
+          Zs := Zs - Ze ;
+
+          RPE := Sqrt ( Sqr ( Xs )  +  Sqr ( Ys )  +  Sqr ( Zs )  );
+
+
+          Tau  := ( RPE * 149597870.66 ) / ( 299792.458 * 86400.0 ) ;
+
+          JdPl := JdE - Tau ;
+
+         End ; { INPl0 }
+
+
+
+        JdPl := JdE ;
+
+
+
+        If ( Not CalcPlDE200 )  Then
+          Begin
+            Vxx := 0.0 ;
+            Vyy := 0.0 ;
+            Vzz := 0.0 ;
+          End ;
+
+
+
+            { Солнце }
+            { ────── }
+
+        If ( CalcPlDE200 )
+           Then
+             DE200 ( 11, JdPl,  RSol, XSolBaric, YSolBaric, ZSolBaric,
+                                      VxS,       VyS,       VzS       )
+           Else
+             Begin
+
+               XSolBaric := 0.0 ;
+               YSolBaric := 0.0 ;
+               ZSolBaric := 0.0 ;
+
+               VxS       := 0.0 ;
+               VyS       := 0.0 ;
+               VzS       := 0.0 ;
+
+             End ;
+
+
+
+         { Кооpдинаты Солнца относительно Геоцентpа }
+         { ──────────────────────────────────────── }
+
+        RectCoordPl [ 11 , 1 ] := XSolBaric - XS ;
+        RectCoordPl [ 11 , 2 ] := YSolBaric - YS ;
+        RectCoordPl [ 11 , 3 ] := ZSolBaric - ZS ;
+
+
+
+        If ( NPl = 11 )  Then
+          Begin
+
+            XPlGelioC := - RectCoordPl [ 11 , 1 ] ;
+            YPlGelioC := - RectCoordPl [ 11 , 2 ] ;
+            ZPlGelioC := - RectCoordPl [ 11 , 3 ] ;
+
+          End ;
+
+         { Кооpдинаты Баpицентpа относительно  X0, Y0, Z0 }
+         { ────────────────────────────────────────────── }
+
+
+        XBaric  := - XS - X0 ;
+        YBaric  := - YS - Y0 ;
+        ZBaric  := - ZS - Z0 ;
+
+        RBaric  :=   Sqrt ( Sqr ( XBaric ) + Sqr ( YBaric ) + Sqr ( ZBaric ) ) ;
+
+
+
+         { Кооpдинаты Солнца относительно  X0, Y0, Z0 }
+         { ────────────────────────────────────────── }
+
+
+        XSol  := XBaric + XSolBaric ;
+        YSol  := YBaric + YSolBaric ;
+        ZSol  := ZBaric + ZSolBaric ;
+
+        RSol  :=   Sqrt ( Sqr ( XSol ) + Sqr ( YSol ) + Sqr ( ZSol ) ) ;
+
+        If ( RSol > 1.0e-11 ) Then
+           Begin
+
+             XSolN := XSol / RSol;
+	     YSolN := YSol / RSol;
+             ZSolN := ZSol / RSol;
+
+           End
+          Else
+           Begin
+
+             XSolN := XSol ;
+	     YSolN := YSol ;
+             ZSolN := ZSol ;
+
+           End ;
+
+
+
+
+
+
+        If ( CalcPlDE200 )  Then
+          Begin
+            PreNXYZ ( 2451545.0 , JDRez, XSolN , YSolN , ZSolN ) ;
+            Nutnew  ( JDRez     , 1    , XSolN , YSolN , ZSolN ) ;
+          End ;
+
+        Ra   := ATan2 ( YSolN , XSolN ) ;
+        Decl := Atan2 ( ZSolN , Sqrt ( Sqr ( XSolN ) + Sqr ( YSolN ) )  ) ;
+        If ( Decl > Pi )  Then
+          Decl := Decl - Pi2 ;
+
+	RezPl [ 11 , 1 ] := Ra   ;
+	RezPl [ 11 , 2 ] := Decl ;
+
+
+
+    For IPL := IPLBEG  To  IPLEND  Do
+      Begin
+
+        JdPl := JdE ;
+        NPl  := IPl ;
+
+        If (     ( NPl  = NPl0   )
+             And ( R0PL < 1.0E-7 ) )  Then
+          GoTo 1026 ;
+
+        Tau := 0.0 ;
+
+
+        If (     ( NPl   = 3 )
+             And ( NPl0 <> 3 ) )
+          Then  JAbMax := 1
+          Else  JAbMax := 2 ;
+
+
+        JdPl := JdE ;
+
+
+        For JAb := 1  To  JAbMax  Do
+            Begin
+
+
+                { КООРДИНАТЫ ПЛАНЕТЫ }
+                { ────────────────── }
+
+
+	       Case NPl Of
+
+		1: If ( CalcPlDE200 )
+                     Then
+                       DE200 ( NPl, JdPl,  R[NPl],
+                               X  [NPl], Y  [NPl], Z  [NPl],
+                               VX [NPl], VY [NPl], VZ [NPl] )
+                     Else
+                       MERK ( JdPl, JDREZ, RL[1], RB[1], R[1], X[1], Y[1], Z[1] );
+
+		2: If ( CalcPlDE200 )
+                     Then
+                       DE200 ( NPl, JdPl,  R[NPl],
+                               X  [NPl], Y  [NPl], Z  [NPl],
+                               VX [NPl], VY [NPl], VZ [NPl] )
+                     Else
+                       VENERA ( JdPl, JDREZ, RL[2], RB[2], R[2], X[2], Y[2], Z[2] );
+
+		3: If ( CalcPlDE200 )
+                     Then
+                       DE200 ( NPl, JdPl,  R[NPl],
+                               X  [NPl], Y  [NPl], Z  [NPl],
+                               VX [NPl], VY [NPl], VZ [NPl] )
+                     Else
+                      Begin
+                        Sol ( JdPl, JDREZ, RL[3], RB[3], R[3], X[3], Y[3], Z[3] );
+                        X[3] := - X[3] ;
+                        Y[3] := - Y[3] ;
+                        Z[3] := - Z[3] ;
+                      End ;
+
+		4: If ( CalcPlDE200 )
+                     Then
+                       DE200 ( NPl, JdPl,  R[NPl],
+                               X  [NPl], Y  [NPl], Z  [NPl],
+                               VX [NPl], VY [NPl], VZ [NPl] )
+                     Else
+                       MARS ( JdPl, JDREZ, RL[4], RB[4], R[4], X[4], Y[4], Z[4] );
+
+		5: Begin
+
+                     If ( CalcPlDE200 )
+                       Then
+                         DE200 ( NPl, JdPl,  R[NPl],
+                               X  [NPl], Y  [NPl], Z  [NPl],
+                               VX [NPl], VY [NPl], VZ [NPl] )
+                       Else
+		         JUP ( JdPl, JDREZ, RL[5], RB[5], R[5], X[5], Y[5], Z[5] );
+
+                     If ( JAB = JAbMax ) Then
+                       SATJUP ( JdPl, XSJ, YSJ, DRSJ );
+
+		   End;
+
+		6: If ( CalcPlDE200 )
+                     Then
+                       DE200 ( NPl, JdPl,  R[NPl],
+                               X  [NPl], Y  [NPl], Z  [NPl],
+                               VX [NPl], VY [NPl], VZ [NPl] )
+                     Else
+                       SAT ( JdPl, JDREZ, RL[6], RB[6], R[6], X[6], Y[6], Z[6] );
+
+		7: If ( CalcPlDE200 )
+                     Then
+                       DE200 ( NPl, JdPl,  R[NPl],
+                               X  [NPl], Y  [NPl], Z  [NPl],
+                               VX [NPl], VY [NPl], VZ [NPl] )
+                     Else
+                       URAN ( JdPl, JDREZ, RL[7], RB[7], R[7], X[7], Y[7], Z[7] );
+
+		8: If ( CalcPlDE200 )
+                     Then
+                       DE200 ( NPl, JdPl,  R[NPl],
+                               X  [NPl], Y  [NPl], Z  [NPl],
+                               VX [NPl], VY [NPl], VZ [NPl] )
+                     Else
+                       NEPT ( JdPl, JDREZ, RL[8], RB[8], R[8], X[8], Y[8], Z[8] );
+
+                9: If ( CalcPlDE200 )
+                     Then
+                       DE200 ( NPl, JdPl,  R[NPl],
+                               X  [NPl], Y  [NPl], Z  [NPl],
+                               VX [NPl], VY [NPl], VZ [NPl] )
+                     Else
+                       PLU ( JdPl, JDREZ, RL[9], RB[9], R[9], X[9], Y[9], Z[9] );
+
+               10: Begin
+                    If ( CalcPlDE200 )
+                     Then
+                       Begin
+                         DE200 (   3, JdPl,  R[10], XM  , YM  , ZM,
+                                                    VXM , VYM , VZM  ) ;
+                         DE200 ( NPl, JdPl,  R[NPl],
+                               X  [NPl], Y  [NPl], Z  [NPl],
+                               VX [NPl], VY [NPl], VZ [NPl] ) ;
+                         XM :=  XM + X [ 10 ] ;
+                         YM :=  YM + Y [ 10 ] ;
+                         ZM :=  ZM + Z [ 10 ] ;
+                       End
+                     Else
+                      Begin
+
+                        Sol    ( JdPl, JDREZ, RL[10], RB[10], R[10], XM  , YM  , ZM   ) ;
+                        MONDIA ( JdPl, JDREZ, RL[10], RB[10], R[10], X[10], Y[10], Z[10] );
+
+                        XM := - XM + X [ 10 ] ;
+                        YM := - YM + Y [ 10 ] ;
+                        ZM := - ZM + Z [ 10 ] ;
+
+                      End ;
+
+		     R[10] := Sqrt ( Sqr ( XM ) + Sqr ( YM ) + Sqr ( ZM ) );
+
+                     X [ 10 ] := XM ;
+                     Y [ 10 ] := YM ;
+                     Z [ 10 ] := ZM ;
+
+                   End ;
+
+               11: If ( CalcPlDE200 )
+                     Then
+                         DE200 ( NPl, JdPl,  R[NPl],
+                               X  [NPl], Y  [NPl], Z  [NPl],
+                               VX [NPl], VY [NPl], VZ [NPl] )
+                     Else
+                      Begin
+                        X[11] := 0.0 ;
+                        Y[11] := 0.0 ;
+                        Z[11] := 0.0 ;
+                        R[11] := 1.0E-10 ;
+                      End ;
+
+	       End ; { Case }
+
+
+
+             If ( Not CalcPlDE200 )  Then
+               Begin
+                 VX [ NPl ] := 0.0 ;
+                 VY [ NPl ] := 0.0 ;
+                 VZ [ NPl ] := 0.0 ;
+               End ;
+
+
+
+             If (     ( JAb  =  1 )
+                  And ( NPl <> 11 )  )  Then
+               Begin { GelioCentric Coord. Planet }
+                     { ────────────────────────── }
+
+                 XPlGelioC := X [ NPl ] - XSolBaric ;
+                 YPlGelioC := Y [ NPl ] - YSolBaric ;
+                 ZPlGelioC := Z [ NPl ] - ZSolBaric ;
+
+               End ;
+
+
+
+             RP   := R [ NPl ]        ;
+
+             XSPN := X [ NPl ] / RP   ;
+             YSPN := Y [ NPl ] / RP   ;
+             ZSPN := Z [ NPl ] / RP   ;
+
+	     XX   := X [ NPl ] + XBaric ;
+	     YY   := Y [ NPl ] + YBaric ;
+	     ZZ   := Z [ NPl ] + ZBaric ;
+
+             RPE  := Sqrt ( Sqr ( XX )  +  Sqr ( YY )  +  Sqr ( ZZ )  );
+
+
+             Xq := XX - XSolBaric ;
+             Yq := YY - YSolBaric ;
+             Zq := ZZ - ZSolBaric ;
+
+             Q := Sqrt ( Sqr ( Xq ) + Sqr ( Yq ) + Sqr ( Zq )  ) ;
+
+
+             {
+             xeb, yeb, zeb - бapиц.   к-ты нaблюдaтeля нa     JDEtDB
+
+             xq,  yq,  zq  - гeлиoц.  к-ты плaнeты нa мoмeнт  JDEtDB-Tau
+             xe,  ye,  ze  - гeлиoц.  к-ты нaблюдaтeля нa     JDEtDB
+             xp,  yp,  zp  - paзнocть к-ты плaнeты в мoмeнт   JDEtDB-Tau
+                             и нaблюдaтeля в мoмeнт           JDEtDB
+             }
+
+             Xe := - XSol ;
+             Ye := - YSol ;
+             Ze := - ZSol ;
+
+             E := sqrt ( Sqr ( XSol ) + Sqr ( YSol ) + Sqr ( ZSol ) ) ;
+
+
+             If (    ( Npl >= 10       )
+                  Or ( NPl0 <> 3       )
+                  Or ( Not CalcPlDE200 )  )
+               Then
+                 Begin
+                   Tau  := ( RPE * 149597870.66 ) / ( 299792.458 * 86400.0 ) ;
+                 End
+               Else
+                 Begin
+                   Tau := (  RPE
+                         + Mc * ln (( E + RPE + Q )/( E - RPE + Q )) / 2.30259 )
+                       * 149597870.66 / ( 299792.458 * 86400.0 ) ; ;
+                 End ;
+
+
+	     JdPl := JDE - Tau;
+
+
+            End ;  { JAb }
+
+
+
+
+        XpN  := XX / RPE;
+        YpN  := YY / RPE;
+	ZpN  := ZZ / RPE;
+
+
+
+
+	RP  := R [ NPl ];
+
+
+               { Угол Фазы }
+               { ───────── }
+
+        If ( NPl <> 11 ) Or ( RPE * 149597870.66 > 6400.0 )
+          Then
+            Begin
+
+              CP :=   ( XpN * XspN  +  YpN * YspN  +  ZpN * ZspN ) ;
+              SP := Sqrt ( Sqr ( YpN * ZspN - ZpN * YspN ) +
+                           Sqr ( ZpN * XspN - XpN * ZspN ) +
+                           Sqr ( XpN * YspN - YpN * XspN )   )  ;
+
+              Phase := ATan2 ( SP , CP );
+
+            End
+          Else
+              Phase := 0.0 ;
+
+
+         {
+	 RP    -  гелиоцентpическое  pасстояние планеты
+	 RPE   -  топоцентpическое   pасстояние планеты
+	 RSol  -  топоцентpическое   pасстояние солнца
+         }
+
+          MAGN ( NPl, RP, RPE, RSol, JdPl, XX, YY, ZZ, RM [NPl] ) ;
+        { ───────────────────────────────────────────────────── }
+
+
+
+             { Пpецессия , если планеты по  DE200 }
+             { ────────────────────────────────── }
+
+         If (     ( CalcPlDE200 )
+              And ( NPl0 = 3    )  )  Then
+           Begin
+
+             If ( NPl < 10 )  Then
+               Begin
+
+                 xq := xq / Q ;
+                 yq := yq / Q ;
+                 zq := zq / Q ;
+
+                 xe := xe / E ;
+                 ye := ye / E ;
+                 ze := ze / E ;
+
+                 { yчeт oтклoнeния cвeтa в пoлe тягoтeния Coлнцa }
+
+                 cc := xpn * xq + ypn * yq + zpn * zq ;
+                 ff := xe * xpn + ye * ypn + ze * zpn ;
+                 ss := Mc / ( E * ( xq * xe + yq * ye + zq * ze + 1.0 ) ) ;
+
+                 xpn := xpn + ss * ( cc * xe - ff * xq ) ;
+                 ypn := ypn + ss * ( cc * ye - ff * yq ) ;
+                 zpn := zpn + ss * ( cc * ze - ff * zq ) ;
+
+
+               End ;
+
+
+
+             { Учeт aбeppaции oт cкopocти нaблюдaтeля }
+
+
+             VxB := Vxx / 299792.458 / 86400.0 * AE ;
+             VyB := Vyy / 299792.458 / 86400.0 * AE ;
+             VzB := Vzz / 299792.458 / 86400.0 * AE ;
+
+             Cc := Sqrt ( 1.0 - ( Sqr ( VxB ) + Sqr ( VyB ) + Sqr ( VzB ) ) ) ;
+             Ff := XPn * VxB + YPn * VyB + ZPn * VzB ;
+             Ss := 1.0 + Ff / ( 1.0 + Cc ) ;
+             Ff := Ff  + 1.0 ;
+
+             XPn := ( Cc * XPn + Ss * VxB ) / Ff ;
+             YPn := ( Cc * YPn + Ss * VyB ) / Ff ;
+             ZPn := ( Cc * ZPn + Ss * VzB ) / Ff ;
+
+
+
+             PreNXYZ ( 2451545.0 , JDRez, XPn , YPn , ZPn ) ;
+             Nutnew  ( JDRez     , 1    , XPn , YPn , ZPn ) ;
+
+
+
+             XX := XpN * RPE ;
+             YY := YpN * RPE ;
+             ZZ := ZpN * RPE ;
+
+
+           End ;
+
+
+
+
+         { Запись пpямоугольных топоцентpических кооpдинат }
+         { ─────────────────────────────────────────────── }
+
+         RectCoordPl [ NPl , 1 ] := XX * AE ;
+         RectCoordPl [ NPl , 2 ] := YY * AE ;
+         RectCoordPl [ NPl , 3 ] := ZZ * AE ;
+
+
+         If ( NPl = 10 )  Then
+           Begin
+             XMoonGeoc := XX - X0 ;
+             YMoonGeoc := YY - Y0 ;
+             ZMoonGeoc := ZZ - Z0 ;
+           End ;
+
+
+         If ( NPl = 11 )  Then
+           Begin
+             XSunGeoc := XX - X0 ;
+             YSunGeoc := YY - Y0 ;
+             ZSunGeoc := ZZ - Z0 ;
+           End ;
+
+
+         { Пеpеход к сфеpическим кооpдинатам }
+         { ───────────────────────────────── }
+
+         Ra   := ATan2 ( YPn , XPn ) ;
+         Decl := Atan2 ( ZPn , Sqrt ( Sqr ( XPn ) + Sqr ( YPn ) )  ) ;
+         If ( Decl > Pi )  Then
+           Decl := Decl - Pi2 ;
+
+
+
+
+             { ФАЗА И ПОЗИЦИОННЫЙ УГОЛ 'РОГОВ'}
+             { ────────────────────────────── }
+
+      If (     ( NPl  <> 11 )
+           And ( NPl0 <> 11 ) )
+        Then
+          Begin
+
+            SP  := XpN * YSolN - XSolN * YpN ;
+
+	    CP  := ZSolN * ( XpN * XpN   + YpN * YpN   ) -
+                   ZpN   * ( XpN * XSolN + YpN * YSolN );
+
+	    PP  := ATan2 ( SP , CP ) ;
+
+            {
+               'PP'  -   УГОЛ  ПОЛЮС - ПЛАНЕТА - СОЛНЦЕ
+                ───────────────────────────────────────
+             ПРОТИВ ЧАСОВОЙ СТРЕЛКИ ПРИ ВЗГЛЯДЕ ИЗНУТРИ СФЕРЫ
+             ────────────────────────────────────────────────
+            }
+
+
+
+            If ( NPl = 10 ) Then
+              PhaseMoon := Phase ;
+
+            If ( NPl = 3 ) Then
+              PhaseEarth := Phase ;
+
+          End  { NPl <> 11 }
+        Else
+          Begin { Солнце }
+            Ff := PI + 0.1 / SekRad ;
+            PP := 0 ;
+            Phase := 0.0 ;
+          End ;
+
+
+ 1026:;
+
+
+	{ ЗАПИСЬ РЕЗУЛЬТАТОВ }
+	{ ────────────────── }
+
+
+        If ( ( NPl <> NPl0 ) Or ( R0PL > 1.0E-7 ) ) Then
+          Begin
+
+            RRab := Diam [ NPl ] / SekRad / RPE ;
+
+            If ( RRab < 1.0 )
+              Then
+                Begin
+                  RRab              := RRab / Sqrt ( 1.0 - Sqr ( RRab ) ) ;
+                  RezPl [ NPl , 4 ] :=  2.0 * ArcTan ( RRab ) ;
+                End
+              Else
+                  RezPl [ NPl , 4 ] := 2.0 * PI ;
+
+	    RezPl [ NPl , 1 ] := Ra         ;
+	    RezPl [ NPl , 2 ] := Decl       ;
+	    RezPl [ NPl , 3 ] := RM [ NPl ] ;
+	    RezPl [ NPl , 5 ] := Phase      ;
+	    RezPl [ NPl , 6 ] := PP         ;
+            RezPl [ NPl , 7 ] := RPE        ;
+
+
+
+          End ;
+
+
+
+
+        { ПРЕОБРАЗОВАНИЕ КООРДИНАТ СПУТНИКОВ ЮПИТЕРА В ЭКВАТОРИАЛЬНЫЕ }
+	{ ─────────────────────────────────────────────────────────── }
+
+
+	If  (     ( NPl  = 5 )
+              And ( NPl0 = 3 )  )   Then
+         Begin
+
+          RJup     :=       RezPl [ 5 , 7 ] * AE ;
+          SRaJup   := Sin ( RezPl [ 5 , 1 ] ) ;
+          CRaJup   := Cos ( RezPl [ 5 , 1 ] ) ;
+          SDeclJup := Sin ( RezPl [ 5 , 2 ] ) ;
+          CDeclJup := Cos ( RezPl [ 5 , 2 ] ) ;
+
+	  UGOL := 23.439 * 3600.0 / SekRad * CRaJup ;
+
+	  SU := Sin ( UGOL );
+	  CU := Sqrt ( 1.0 - SU * SU );
+
+          XJup     := RectCoordPl [ 5 , 1 ]   ;
+          YJup     := RectCoordPl [ 5 , 2 ]   ;
+          ZJup     := RectCoordPl [ 5 , 3 ]   ;
+
+
+	  For II := 1 To 4  Do
+	   Begin
+
+	    XSAT := XSJ [ II ] / SekRad;
+	    YSAT := YSJ [ II ] / SekRad;
+
+            DrSatJup    := DRSJ [ II ] * AE ;
+            DRaSatJup   := ( XSAT * CU - YSAT * SU ) / CDeclJup  ;
+            DDEclSatJup :=   XSAT * SU + YSAT * CU               ;
+
+	    RezPl [ 11+II , 1 ] := RezPl [ 5 , 1 ] + DRaSatJup   ;
+	    RezPl [ 11+II , 2 ] := RezPl [ 5 , 2 ] + DDeclSatJup ;
+	    RezPl [ 11+II , 3 ] := RMSATJ [ II ];
+	    RezPl [ 11+II , 4 ] := Diam  [ 11+II ] / RPE * 2.0 / SekRad;
+	    RezPl [ 11+II , 5 ] := RezPl [ 5 , 5 ];
+	    RezPl [ 11+II , 6 ] := RezPl [ 5 , 6 ];
+            RezPl [ 11+II , 7 ] := RezPl [ 5 , 7 ] + DRSJ [ II ] ;
+
+            DXSatJup :=          CRaJup * CDeclJup * DrSatJup
+                        - RJup * SRaJup * CDeclJup * DRaSatJup
+                        - RJup * CRaJup * SDeclJup * DDeclSatJup ;
+
+            DYSatJup :=          SRaJup * CDeclJup * DrSatJup
+                        + RJup * CRaJup * CDeclJup * DRaSatJup
+                        - RJup * SRaJup * SDeclJup * DDeclSatJup ;
+
+            DZSatJup := DrSatJup * SDeclJup + RJup * CDeclJup * DDeclSatJup ;
+
+            RectCoordPl [ 11+II , 1 ] := XJup + DXSatJup ;
+            RectCoordPl [ 11+II , 2 ] := YJup + DYSatJup ;
+            RectCoordPl [ 11+II , 3 ] := ZJup + DZSatJup ;
+
+	   End ;
+
+         End ;
+
+    End ;  { CALC Of PLANETS }
+
+
+  End; { Proc PlPro }
+
+
+End.

@@ -1,0 +1,722 @@
+{$O+,F+}
+
+Unit PProFld ;
+
+Interface
+
+
+Procedure RecalcObjects ;
+Procedure ResetObjects  ;
+Procedure ScToId  ( ScX, ScY : single; var IdX, IdY : single );
+Procedure XYEpOut ( Var PmRa, PmDecl, XSt, YSt : Single ) ;
+Procedure IdToEq1 ( XSt, YSt : Single  ;  Var  Ra, Decl : Double ) ;
+Procedure IdToEq  ( ox,oy : Double; npfix : boolean; spnp, cpnp : Double; var ora, odc : double );
+Procedure RadToGms ( x : Single; Var neg : boolean; Var g, m : integer ; Var s : Single );
+Procedure RadToHms ( x : Single; Var h, m : integer ; Var s : Single );
+Procedure Povorot ( JDate : Double; Var SPoz, CPoz : Double ) ;
+
+Implementation
+
+Uses
+
+   Screen , PVar , PPreNew , Shell_X ;
+
+
+Procedure RecalcObjects;
+var
+ NSort        : Byte    ;
+ Ind          : Integer ;
+ Mplanet      : Double  ;
+ dx, dy       : Double  ;
+ DxSc, DySc   : Double  ;
+ DxObj,DyObj  : Double  ;
+Begin
+
+
+ { ¥à¥¢®¤ ª®®à¤¨­ â ¢ íªà ­­ë¥  }
+
+ With sw Do
+   Begin
+
+     Dx := ( x2 - x1 + 1 ) / 2.0 ;
+     Dy := ( y2 - y1 + 1 ) / 2.0 ;
+
+     DxSc := XOrient * GScale / XMax * Dx  ;
+     DySc := YOrient * GScale / YMax * Dy  ;
+
+   End ;
+
+
+ If  ( Not Recalc )  Then
+ Begin
+
+ MvMinIzo :=  1000        ;
+ MvMin    := MvMinParam   ;
+
+ MvMaxIzo := -1000        ;
+ MvMax    := MvMaxParam   ;
+
+
+
+  For NSort := 1 To CatMax Do
+
+    Begin
+
+      IFirst := IndCat [ NSort ].NBEG ;
+      ILast  := IndCat [ NSort ].NEND ;
+
+      If  ( ILast >= IFirst )  Then
+
+        Begin
+
+          For Ind := IFirst To ILast  Do
+            With  Objectptr [ Ind Div Objectblocksize ] ^
+                            [ Ind Mod Objectblocksize ]   Do
+              Begin
+
+                DxObj := ( X - CenterX ) * DxSc ;
+                DyObj := ( Y - CenterY ) * DySc ;
+
+                X  :=  Dx + DxObj ;
+                Y  :=  Dy - DyObj ;
+
+                If (      ( Abs ( DyObj ) <= Dy )
+                     And  ( Abs ( DxObj ) <= Dx ) )  Then
+                  Begin  { ‚ ¯®«¥ §p¥­¨ï }
+                         { ------------- }
+
+                    NRecC := Abs ( NRecC ) ;
+
+
+                    If ( M > MvMaxIzo )
+                       Then  MvMaxIzo := M ;
+
+                    If ( M < MvMinIzo )
+                       Then  MvMinIzo := M ;
+
+                  End  { ‚ ¯®«¥ §p¥­¨ï }
+                       { ------------- }
+                 Else
+
+                    NRecC := - Abs ( NRecC ) ;
+
+              End ;
+{
+          If ( SortStarsInFild ) Then
+            Begin
+              ShellX ( IFirst , ILast ) ;
+              CatSort [ NSort ] := True ;
+            End ;
+}
+        End ;
+
+    End ;
+
+ End ;
+
+      { « ­¥âë }
+      { ======= }
+
+ If ( Not ReCalcPlanets ) Then
+ Begin
+   For Ind:=1 To MaxPlanets Do
+    If Planet[Ind].Visible Then
+      With  Planet[Ind] Do
+        Begin
+
+          x  :=  Dx + ( X - CenterX ) * DxSc ;
+          y  :=  Dy - ( Y - CenterY ) * DySc ;
+
+          D := D_IZO * GScale / XMax * (sw.x2-sw.x1+1) / 2.0;
+
+              If (     ( Nr <> NPlOpt )
+                   And ( Nr <> NPl0   )
+                   And ( Nr <> 10     )
+                   And ( Nr <= Max_PL_PPLFLD   )
+                   And ( ( NPl0 = 3 ) And ( Nr <> 11 )  ) )  Then
+                Begin
+
+                  Mplanet := ( M + 5.0 ) * 10.0 ;
+
+                  If ( Mplanet > MvMaxIzo )   Then
+                    MvMaxIzo := Mplanet ;
+
+                  If ( Mplanet < MvMinIzo )   Then
+                    MvMinIzo := Mplanet ;
+
+                End ;
+
+        End ;
+
+   ReCalcPlanets := True ;
+
+ End ;
+
+
+ If ( MvMaxIzo > - 1000 )
+   Then
+     MvMax := MvMaxIzo / 10.0 - 5.0 + 0.01
+   Else
+     MvMax := MvMaxParam ;
+
+ If ( MvMinIzo < 1000 )
+   Then
+     MvMin := MvMinIzo / 10.0 - 5.0 - 0.01
+   Else
+     MvMin := MvMinParam ;
+
+
+ ReCalc := True ;
+
+End;
+
+
+
+
+
+Procedure ResetObjects;
+var
+ Ind            : integer ;
+ dx, dy         : Double  ;
+ DxSc, DySc     : Double  ;
+Begin
+
+ { ¥à¥¢®¤ ª®®à¤¨­ â ¢ ¨¤¥ «ì­ë¥  }
+
+ With sw Do
+   Begin
+     Dx := ( x2 - x1 + 1 )  ;
+     Dy := ( y2 - y1 + 1 )  ;
+     DxSc := XMax / GScale / XOrient / Dx  ;
+     DySc := YMax / GScale / YOrient / Dy  ;
+   End ;
+
+ For Ind:=0 To numberofstars-1 Do
+   With  objectptr [ Ind div objectblocksize ] ^
+                   [ Ind mod objectblocksize ]
+    Do
+      Begin
+{
+        NRecC := Abs ( NRecC ) ;
+}
+        x := CenterX + ( 2.0 * x - Dx ) * DxSc ;
+        y := CenterY - ( 2.0 * y - Dy ) * DySc ;
+
+      End ;
+
+ FOR Ind := 1 To 16 Do  CatSort [ Ind ] := False ;
+
+
+        { « ­¥âë }
+        { ======= }
+
+ For Ind:=1 To MaxPlanets Do
+   If Planet[Ind].Visible Then
+     With  Planet[Ind] Do
+       Begin
+         x := CenterX + ( 2.0 * x - Dx ) * DxSc ;
+         y := CenterY - ( 2.0 * y - Dy ) * DySc ;
+       End ;
+
+ ReCalc        := False ;
+ ReCalcPlanets := False ;
+
+End;  { resetobjects }
+      { ------------ }
+
+
+Procedure ScToId( ScX, ScY : single; var IdX, IdY : single );
+
+Begin
+ With sw Do
+ Begin
+
+  IdX := CenterX + (  2.0 * ScX - ( x2-x1+1.0 ) ) *
+                      XMax / XOrient / Gscale / (x2-x1+1.0);
+
+  IdY := CenterY + ( -2.0 * ScY + ( y2-y1+1.0 ) ) *
+                      YMax / YOrient / Gscale / (y2-y1+1.0);
+
+ End;
+End;
+
+           { ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ }
+
+
+  Procedure  XYEpOut ( Var PmRa, PmDecl, XSt, YSt : Single ) ;
+
+Var
+
+    P, S, Sr, Cr, Sd, Cd,
+    Sp, Cp, Ss, Cs,
+    SDa, CDa,
+    PmX, PmY,
+    SPoz, CPoz, SG, CG     : Double ;
+
+
+Begin
+
+
+    { ¥p¥áç¥â X, Y }
+    { ÄÄÄÄÄÄÄÄÄÄÄÄÄ }
+
+  XSt := - XSt ;
+
+  P := Sqrt ( XST * XST + YST*YST ) ;
+  S := P / FD ;
+
+  If ( S < 1.0E-9 )
+    Then
+
+      Begin
+
+        SR := SRaOpt ;
+        CR := CRaOpt ;
+
+        SD := SDeclOpt ;
+        CD := CDeclOpt ;
+
+      End
+    Else
+      Begin
+
+        CP :=  YSt / P ;
+        SP :=  XSt / P ;
+
+        SS := S / Sqrt ( 1.0  +  S * S ) ;
+        CS := Sqrt ( 1.0 - SS * SS )     ;
+
+        SD := CS * SDeclOpt + SS * CDeclOpt * CP ;
+        CD := Sqrt ( 1.0 - SD * SD ) ;
+
+        If ( Abs ( CD ) < 1.0E-9 )
+          Then
+
+            Begin
+
+              SR  := SRaOpt ;
+              CR  := CRaOpt ;
+
+              SDA := SDeclOpt ;
+              CDA := CDeclOpt ;
+
+            End
+
+          Else
+
+            Begin
+
+              SDA := ( SS * SP ) / CD ;
+              CDA := ( CS * CDeclOpt - SS * SDeclOpt * CP ) / CD ;
+
+              SR  := SDA * CRaOpt + CDA * SRaOpt ;
+              CR  := CDA * CRaOpt - SDA * SRaOpt ;
+
+            End ;
+
+      End ;
+
+
+        { “ç¥â á®¡áâ¢¥­­ëå ¤¢¨¦¥­¨© }
+        { ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ }
+
+  CRo  := SDeclOpt * SD + CDeclOpt * CD * CDA ;    { Cos S }
+
+  If ( ( 1.0 - CRo ) < 1.0E-9 )
+
+      Then
+
+        Begin
+
+          PmX  := - PmRa   ;
+          PmY  :=   PmDecl ;
+
+        End
+
+      Else
+
+        Begin
+
+          S    :=   Sqrt ( Sqr ( XSt )  +  Sqr ( YSt ) ) ;
+          SP   :=   YSt / S ;
+          CP   :=   XSt / S ;
+
+          SS   :=   Sqrt ( 1.0 - CRo * CRo ) ;
+          SPoz :=   CDeclOpt * ( - SdA ) / SS ;
+          CPoz := ( SDeclOpt * CD -
+                    CDeclOpt * SD * CdA ) / SS ;
+
+          SG   := SPoz * CP + CPoz * SP ;
+          CG   := CPoz * CP - SPoz * SP ;
+
+          PmX  :=  PmRa * SG  +  PmDecl * CG  ;
+          PmY  :=  PmRa * CG  -  PmDecl * SG  ;
+
+        End ;
+
+
+  XSt := XSt + PmX * ( JdOut - JDate ) / 365.25 ;
+  YSt := YSt + PmY * ( JdOut - JDate ) / 365.25 ;
+
+  XSt := - XSt ;
+
+
+
+    { ¥p¥áç¥â P.M.Ra, P.M.Decl }
+    { ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ }
+
+  XSt := - XSt ;
+
+  P := Sqrt ( XST * XST + YST*YST ) ;
+  S := P / FD ;
+
+  If ( S < 1.0E-9 )
+    Then
+
+      Begin
+
+        SR := SRaOpt ;
+        CR := CRaOpt ;
+
+        SD := SDeclOpt ;
+        CD := CDeclOpt ;
+
+      End
+    Else
+      Begin
+
+        CP :=  YSt / P ;
+        SP :=  XSt / P ;
+
+        SS := S / Sqrt ( 1.0  +  S * S ) ;
+        CS := Sqrt ( 1.0 - SS * SS )     ;
+
+        SD := CS * SDeclOpt + SS * CDeclOpt * CP ;
+        CD := Sqrt ( 1.0 - SD * SD ) ;
+
+        If ( Abs ( CD ) < 1.0E-9 )
+          Then
+
+            Begin
+
+              SR  := SRaOpt ;
+              CR  := CRaOpt ;
+
+              SDA := SDeclOpt ;
+              CDA := CDeclOpt ;
+
+            End
+
+          Else
+
+            Begin
+
+              SDA := ( SS * SP ) / CD ;
+              CDA := ( CS * CDeclOpt - SS * SDeclOpt * CP ) / CD ;
+
+              SR  := SDA * CRaOpt + CDA * SRaOpt ;
+              CR  := CDA * CRaOpt - SDA * SRaOpt ;
+
+            End ;
+
+      End ;
+
+
+
+  CRo  := SDeclOpt * SD + CDeclOpt * CD * CDA ;    { Cos S }
+
+  If ( ( 1.0 - CRo ) < 1.0E-9 )
+
+      Then
+
+        Begin
+
+          PmX  := - PmRa   ;
+          PmY  :=   PmDecl ;
+
+        End
+
+      Else
+
+        Begin
+
+          S    :=   Sqrt ( Sqr ( XSt )  +  Sqr ( YSt ) ) ;
+          SP   :=   YSt / S ;
+          CP   :=   XSt / S ;
+
+          SS   :=   Sqrt ( 1.0 - CRo * CRo ) ;
+          SPoz :=   CDeclOpt * ( - SdA ) / SS ;
+          CPoz := ( SDeclOpt * CD -
+                    CDeclOpt * SD * CdA ) / SS ;
+
+          SG   := SPoz * CP + CPoz * SP ;
+          CG   := CPoz * CP - SPoz * SP ;
+
+          PmRa   :=  PmX * SG  +  PmY * CG  ;
+          PmDecl :=  PmX * CG  -  PmY * SG  ;
+
+        End ;
+
+
+  XSt := - XSt ;
+
+
+End;   { XYEpOut }
+
+
+
+           { ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ }
+
+    Procedure IdToEq1 ( XSt, YSt  : Single ;  Var  Ra, Decl  : Double  ) ;
+
+Var
+    P, S, Sr, Cr, Sd, Cd,
+    Sp, Cp, Ss, Cs,
+    SDa, CDa
+                           : Double ;
+
+
+Begin
+
+
+
+  P := SQRT ( XST*XST + YST*YST ) ;
+  S := P / FD ;
+
+  IF ( S < 1.0E-9 )  THEN
+
+      BEGIN
+
+        SR := SRaOpt ;
+        CR := CRaOpt ;
+
+        SD := SDeclOpt ;
+        CD := CDeclOpt ;
+
+      END
+    ELSE
+      BEGIN
+
+        CP :=    YSt / P ;
+        SP :=  - XSt / P ;
+
+        SS := S / SQRT ( 1.0  +  S * S ) ;
+        CS := SQRT ( 1.0 - SS * SS )     ;
+
+        SD := CS * SDeclOpt + SS * CDeclOpt * CP ;
+        CD := SQRT ( 1.0 - SD * SD ) ;
+
+        IF ( ABS ( CD ) < 1.0E-9 )  THEN
+            BEGIN
+
+              SR  := SRaOpt ;
+              CR  := CRaOpt ;
+
+              SDA := SDeclOpt ;
+              CDA := CDeclOpt ;
+
+            END
+          ELSE
+            BEGIN
+
+              SDA := ( SS * SP ) / CD ;
+              CDA := ( CS * CDeclOpt - SS * SDeclOpt * CP ) / CD ;
+
+              SR  := SDA * CRaOpt + CDA * SRaOpt ;
+              CR  := CDA * CRaOpt - SDA * SRaOpt ;
+
+            END ;
+
+
+      END ;
+
+  Ra   := ArcTan ( Sr / Cr ) ;
+          If ( Cr < 0.0 )  Then  Ra := Ra + PI       ;
+          If ( Ra < 0.0 )  Then  Ra := Ra + PI * 2.0 ;
+
+  Decl := ArcTan ( Sd / Cd ) ;
+
+
+End;   { IdToEq1 }
+
+
+           { ÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜ }
+
+
+
+Procedure IdToEq(             OX, OY  : Double  ;
+                               NPFIX  : BOOLEAN ;
+                          SPNP, CPNP  : Double  ;
+                   VAR      ORA, ODC  : Double    ) ;
+
+Begin
+
+ R1   := SQRT ( OX * OX  + OY * OY ) ;
+
+ If ( R1/FD > 1.0E-10 ) Then
+
+ Begin
+
+   If  (     (  NPFIX           )
+         And ( Not B_Import_Fld )  )  Then
+     Begin
+       SPOZ :=   OX ;
+       OX   :=   OX * CPNP - OY * SPNP ;
+       OY   := SPOZ * SPNP + OY * CPNP ;
+     End ;
+
+   SPOZ := OX / R1 ;
+   CPOZ := OY / R1 ;
+
+   SRO  := R1 / FD ;
+   CRO  := SQRT ( 1.0 + SRO * SRO ) ;
+   SRO  := SRO / CRO ;
+   CRO  := 1.0 / CRO ;
+
+   SHNOD := CRO * SHOPT  +  SRO * CHOPT * CPOZ ;
+   CHNOD := SQRT ( 1.0  -  SHNOD * SHNOD ) ;
+
+   R1    := SRO * SPOZ ;
+   R2    := CRO * CHOPT  -  SRO * SHOPT * CPOZ ;
+
+   ANOD  := ARCTAN ( R1 / R2 ) ;
+   If ( R2   < 0.0 )  Then  ANOD := ANOD + PI       ;
+   If ( ANOD < 0.0 )  Then  ANOD := ANOD + PI * 2.0 ;
+
+  End
+
+  ELSE
+
+  Begin
+
+   ANOD  := 0.0 ;
+
+   SHNOD := SHOPT ;
+   CHNOD := CHOPT ;
+
+  End ;
+
+  ANOD := ANOD + AOPT ;
+
+  If ( ANOD < 0.0    )  Then  ANOD := ANOD + PI*2.0 ;
+  If ( ANOD > PI*2.0 )  Then  ANOD := ANOD - PI*2.0 ;
+
+
+  SANOD := SIN ( ANOD ) ;
+  CANOD := COS ( ANOD ) ;
+
+  SDECLNOD := SHNOD * SFIS - CHNOD * CFIS * CANOD ;
+
+  CDECLNOD := SQRT ( 1.0 - SDECLNOD * SDECLNOD ) ;
+
+  STNOD    :=   CHNOD * SANOD                         / CDECLNOD ;
+  CTNOD    := ( SHNOD * CFIS + CHNOD * SFIS * CANOD ) / CDECLNOD  ;
+
+  DECLNOD := ARCTAN ( SDECLNOD / CDECLNOD ) ;
+
+  TNOD     := ARCTAN ( STNOD / CTNOD ) ;
+    If ( CTNOD < 0.0 )  Then  TNOD := TNOD + PI  ;
+    If (  TNOD < 0.0 )  Then  TNOD := TNOD + PI*2.0 ;
+
+  RANOD    := STIME - TNOD ;
+  If ( RANOD < 0.0 )  Then RANOD := RANOD + PI*2.0 ;
+
+  Ora :=   RANOD;
+  Odc := DECLNOD;
+
+End;
+
+
+
+Procedure RadToGms( x : Single; Var neg : boolean; Var g, m : integer ; Var s : Single );
+Const
+ C = 206264.806347;
+Var
+ Sign : Integer;
+Begin
+ If ( x < 0 ) Then Sign:=  -1 else Sign:=1;
+ neg := ( Sign = -1 );
+ x:=( Sign * x ) * C;
+ g:=Trunc( x / 3600.0 );
+ x:= x - g * 3600.0;
+ m:=Trunc( x / 60.0 );
+ s:= x - m * 60.0;
+ If ( s >= 60.0 )
+ Then
+ Begin
+  s:=s - 60.0;
+  Inc(m);
+ End
+ Else
+  If ( s > 59.99 ) Then s:=59.99;
+ If ( m >= 60 )
+ Then
+ Begin
+  m:=m-60;
+  g:=g+1;
+ End;
+End;
+
+
+
+Procedure RadToHms( x : Single; Var h,m : Integer; Var s : Single );
+
+Const
+ C = 206264.806;
+Begin
+ x:=x * ( C / 15.0 );
+ h:=Trunc( x / 3600.0 );
+ x:= x - h * 3600.0;
+ m:=Trunc( x / 60.0 );
+ s:= x - m * 60.0;
+
+ If ( s >= 60.0 )
+ Then
+ Begin
+  s:=s - 60.0;
+  Inc(m);
+ End
+ Else
+  If ( S > 59.9 ) Then s:=59.9;
+ If ( m >= 60 )
+ Then
+ Begin
+  m:=m-60;
+  Inc(h);
+ End;
+ If ( ( h = 24 ) And ( m = 0 ) ) Then
+ Begin
+  h:=0;
+  m:=0;
+ End;
+End;
+
+
+
+Procedure Povorot ( JDate : Double; Var SPoz, CPoz : Double ) ;
+ Var
+    RaNp1, DeclNp1,
+    SPozNp1, CPozNp1, Cs, Ss             : Double ;
+
+  Begin
+
+        RaNp1   := 0.0      ;
+        DeclNp1 := Pi / 2.0 ;
+
+        PRENew ( JDate, JDateFld, RaNp1, DeclNp1 );
+       {==========================================}
+
+        Cs := SDeclOpt * Sin ( DeclNp1 ) +
+              CDeclOpt * Cos ( DeclNp1 ) * Cos ( RaNp1 - RaOpt ) ;
+
+        Ss := Sqrt ( 1.0 - Cs * Cs ) ;
+
+        SPoz := Cos ( DeclNp1 ) * Sin ( RaNp1 - RaOpt ) / Ss ;
+
+        CPoz := ( Sin ( DeclNp1 ) * CDeclOpt -
+                  Cos ( DeclNp1 ) * SDeclOpt * Cos ( RaNp1 - RaOpt )
+                ) / Ss ;
+
+  End ;
+
+End.

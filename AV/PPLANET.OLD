@@ -1,0 +1,1407 @@
+
+{$F+,O+}
+
+Unit PPlanet;
+Interface
+Procedure ShowPlanets;
+
+Implementation
+
+Uses
+ TCrt, Graph, PVar, Screen, Sort;
+
+Const
+ MaxRadius = 32000.0;
+ PlanetCol : Byte =  LightMagenta ;
+ QuadColor =  LightCyan ;
+ SRStp     : Integer = 2;
+ PlColArr  : Array [ 1 .. 15 ] Of Byte =
+             ( White ,    LightBlue, Green, LightRed,  LightCyan,
+               LightCyan, Cyan,     LightBlue, LightBlue, LightGreen,
+               Yellow   , Cyan, Cyan, Cyan, Cyan        ) ;
+
+
+
+ Procedure  ShowMateriki ( S_Planet : PlanetType ) ;
+           {▄▄▄▄▄▄▄▄▄▄▄▄}
+
+ Const
+
+     DRTerm     = 4.0      ;
+     PhaseKrit  = Pi / 8   ;
+     ColorNight = DarkGray ;
+
+ Var
+
+     PhaseMin,
+     Prima         : Boolean ;
+
+     PlanetColor,
+     ColorPixel    : Byte    ;
+
+     I,
+     SxP, SyP,
+     ColPix        : Integer ;
+
+     PixColor      : Word    ;
+
+     PozSunEarth,
+     SPozSunEarth,
+     CPozSunEarth,
+     RRad, DRRad,
+     DxPoint,
+     DyPoint,
+     SxPoint,
+     SyPoint,
+     RPoint, RR,
+     RPl,
+     RPointMax ,
+     PhasePl,
+     X,  Y,  Z ,
+     X1, Y1, Z1,
+     XPl, YPL, ZPL, R_Pl,
+     XSun, YSun, ZSun, RSun,
+     XSunN, YSunN, ZSunN,
+     XSun0, YSun0, ZSun0,
+     XObs, YObs, ZObs, RObs,
+     XObsN, YObsN, ZObsN,
+     XObs0, YObs0, ZObs0,
+     CLS, SLS,
+     SDS, CDS,
+     Sxm, Sym,
+     DxPix,
+     DyPix,
+     DxTerm,
+     DyTerm,
+     dx, dy,
+     Xc, Yc,
+     DxSc, DySc,
+     DxObj,DyObj   : Double  ;
+
+     SigDx,
+     SigDy,
+     Sx , Sy       : Integer ;
+     Sx1, Sy1      : Integer ;
+     SxC, SyC      : Integer ;
+     SxOld, SyOld  : Integer ;
+     NPTermViz     : Integer ;
+
+     SxTermViz     : Array [ 0 .. 362 ] Of Integer ;
+     SyTermViz     : Array [ 0 .. 362 ] Of Integer ;
+
+     SxLimbViz     : Array [ 0 .. 362 ] Of Integer ;
+     SyLimbViz     : Array [ 0 .. 362 ] Of Integer ;
+
+
+
+
+Procedure CalcLimb ;
+
+    { Вычисление экpанных кооpдинат лимба }
+    { ─────────────────────────────────── }
+
+ Var
+     I,J     : Integer ;
+
+     Ra,
+     Decl,
+     Masstab : Double ;
+
+  Begin
+
+
+
+         { З А Й Ч И К }
+         { ▄▄▄▄▄▄▄▄▄▄▄ }
+
+
+     If ( NPl = NPl0 )  Then
+       Begin { NPl = NPl0 }
+
+         XSun  :=  RectCoordPl [ 11 , 1 ] ;
+         YSun  :=  RectCoordPl [ 11 , 2 ] ;
+         ZSun  :=  RectCoordPl [ 11 , 3 ] ;
+
+         XSun0 := XSun - XPl ;
+         YSun0 := YSun - YPl ;
+         ZSun0 := ZSun - ZPl ;
+
+         XObs0 := - XPl ;
+         YObs0 := - YPl ;
+         ZObs0 := - ZPl ;
+
+         XZaichik := 0.0 ;
+         YZaichik := 0.0 ;
+         ZZaichik := 0.0 ;
+
+
+         For I := 1  To  5  Do
+           Begin
+
+             XObs := XObs0 - XZaichik ;
+             YObs := YObs0 - YZaichik ;
+             ZObs := ZObs0 - ZZaichik ;
+
+             RObs := Sqrt ( Sqr ( XObs ) + Sqr ( YObs ) + Sqr ( ZObs ) ) ;
+
+             XObsN := XObs / RObs ;
+             YObsN := YObs / RObs ;
+             ZObsN := ZObs / RObs ;
+
+             XSun := XSun0 - XZaichik ;
+             YSun := YSun0 - YZaichik ;
+             ZSun := ZSun0 - ZZaichik ;
+
+             RSun := Sqrt ( Sqr ( XSun ) + Sqr ( YSun ) + Sqr ( ZSun ) ) ;
+
+             XSunN := XSun / RSun ;
+             YSunN := YSun / RSun ;
+             ZSunN := ZSun / RSun ;
+
+
+             XZaichik := ( XSunN + XObsN ) / 2.0 ;
+             YZaichik := ( YSunN + YObsN ) / 2.0 ;
+             ZZaichik := ( ZSunN + ZObsN ) / 2.0 ;
+
+             RZaichik := Sqrt ( Sqr ( XZaichik ) +
+                                Sqr ( YZaichik ) +
+                                Sqr ( ZZaichik ) ) ;
+
+             XZaichik := XZaichik / RZaichik * R_Pl ;
+             YZaichik := YZaichik / RZaichik * R_Pl ;
+             ZZaichik := ZZaichik / RZaichik * R_Pl ;
+
+           End ;
+
+
+         Materiki^[ NumPointMateriki + 1 ].X := Round ( XZaichik * 5.0 ) ;
+         Materiki^[ NumPointMateriki + 1 ].Y := Round ( YZaichik * 5.0 ) ;
+         Materiki^[ NumPointMateriki + 1 ].Z := Round ( ZZaichik * 5.0 ) ;
+         Materiki^[ NumPointMateriki + 1 ].E := 7 ;
+
+       End ; { NPl = NPl0 }
+
+
+
+            { Э К В А Т О Р }
+            { ▄▄▄▄▄▄▄▄▄▄▄▄▄ }
+
+
+          { Кооpдинаты планеты }
+          { ────────────────── }
+
+     RPl := Sqrt ( Sqr ( XPl ) + Sqr ( YPl ) + Sqr ( ZPl ) ) ;
+
+     XX := XPl / RPl ;
+     YY := YPl / RPl ;
+     ZZ := ZPl / RPl ;
+
+     Ra := ArcTan ( YY / XX ) ;
+        If ( XX < 0.0 ) Then Ra := Ra + Pi       ;
+        If ( Ra < 0.0 ) Then Ra := Ra + Pi * 2.0 ;
+
+     Decl := ArcTan ( ZZ / SQRT ( 1.0 - ZZ * ZZ ) ) ;
+
+
+        { Кооpдинаты Hаблюдателя }
+        { ────────────────────── }
+
+     Decl := - Decl ;
+     Ra   := Ra + Pi ;
+
+
+     SDS := Sin ( - ( Pi / 2.0 - Decl ) ) ;
+     CDS := Cos ( - ( Pi / 2.0 - Decl ) ) ;
+
+     SLS := Sin ( - Ra ) ;
+     CLS := Cos ( - Ra ) ;
+
+     Masstab := RPl / RPointMax * R_Pl ;
+
+     For I := 0 To 362 Do
+       Begin
+         SxLimbViz [ I ] := - 1 ;
+         SyLimbViz [ I ] := - 1 ;
+       End ;
+
+     J := 1 ;
+
+     For  I := NumEkvBeg  To  NumEkvEnd  Do
+       Begin { I }
+             { - }
+
+         X  := Materiki^[ I ].X / 5 * Masstab ;
+         Y  := Materiki^[ I ].Y / 5 * Masstab ;
+         Z  := Materiki^[ I ].Z / 5 * Masstab ;
+
+
+         { Вокpуг оси Y на 90 - Decl }
+         { ───────────────────────── }
+
+         X1 :=  X * CDS  -  Z * SDS  ;
+         Y1 :=  Y                    ;
+         Z1 :=  X * SDS  +  Z * CDS  ;
+
+         { Вокpуг оси Z на R.A. }
+         { ──────────────────── }
+
+         X  := X1 *     CLS    +  Y1 * SLS  +  XPl ;
+         Y  := X1 * ( - SLS )  +  Y1 * CLS  +  YPl ;
+         Z  := Z1                           +  ZPl ;
+
+         RPoint := Sqrt ( X*X + Y*Y + Z*Z ) ;
+
+
+              { Сфеpические кооpдинаты }
+              { ---------------------- }
+
+         SD   := Z / RPoint                     ;
+         CD   := SQRT ( ABS ( 1.0 - SD * SD ) ) ;
+         If ( CD > 2.0E-10 )
+           Then
+             Begin
+               SR := Y / RPoint / CD ;
+               CR := X / RPoint / CD ;
+             End
+           Else
+             Begin
+               SR := 1.0 ;
+               CR := 0.0 ;
+             End ;
+
+         ST   := SSTIME * CR  -  CSTIME * SR ;
+         CT   := CSTIME * CR  +  SSTIME * SR ;
+
+         SH   := SD * SFIS + CD * CFIS * CT ;
+
+         SA   :=   CD * ST ;
+         CA   := - SD * CFIS + CD * SFIS * CT ;
+
+           { Вычислены гоpизонтальные к - ты }
+           { ------------------------------- }
+
+         CDA  :=  CA   * CAOPT  +  SA   * SAOPT  ;
+	 CRO  := SHOPT *  SH    + CHOPT *  CDA   ;
+
+         SDA  := SAOPT * CA  -  CAOPT  * SA ;
+
+	 SPOZ := SDA;
+         CPOZ := SH * CHOPT  -  SHOPT * CDA ;
+
+	 YST  :=   FD * CPOZ / CRO ;
+	 XST  := - FD * SPOZ / CRO ;
+
+
+         If ( NPOLFIX )  Then
+            Begin { СТАБИЛИЗАЦИЯ ОСИ Y НА СЕВЕРНЫЙ ПОЛЮС }
+                  { ------------------------------------ }
+
+              INDEX :=    XST ;
+              XST   :=    XST  * CPOZNP  +  YST * SPOZNP ;
+              YST   := - INDEX * SPOZNP  +  YST * CPOZNP ;
+
+            End ;
+
+
+
+         If  ( CRO > 0 )  Then
+           Begin  { CRO > 0 }
+                  { ------- }
+
+             DxObj := ( XSt - CenterX ) * DxSc ;
+             DyObj := ( YSt - CenterY ) * DySc ;
+
+             Sx :=  Round ( Dx + DxObj ) ;
+             Sy :=  Round ( Dy - DyObj ) ;
+
+             SxLimbViz [ J ] := Sx ;
+             SyLimbViz [ J ] := Sy ;
+             Inc ( J ) ;
+
+           End ;  { CRO > 0 }
+                  { ------- }
+
+       End ; { I }
+             { - }
+  End ; { Procedure CalcLimb }
+
+
+         { *********************** }
+
+
+ Procedure  Limb ( LimbColor : Word ; Full : Boolean ) ;
+
+ Var
+     PointFind : Boolean ;
+     I         : Integer ;
+
+   Begin
+
+     PointFind := False ;
+     SetColor ( LimbColor ) ;
+
+     SxOld := SxLimbViz [ 1 ] ;
+     SyOld := SyLimbViz [ 1 ] ;
+
+     For  I := 2  To  361  Do
+       Begin { I }
+             { - }
+
+         Sx := SxLimbViz [ I ] ;
+         Sy := SyLimbViz [ I ] ;
+
+         Line  ( SxOld, SyOld, Sx, Sy ) ;
+
+         SxOld := Sx ;
+         SyOld := Sy ;
+
+         If ( Not PointFind )  Then
+           Begin
+
+             If (    ( Sx > Sw.x1+2 )
+                 And ( Sx < Sw.x2-2 )
+                 And ( Sy > Sw.y1+2 )
+                 And ( Sy < Sw.y2-2 ) )  Then
+               Begin
+                 PointFind := True ;
+                 If ( Sx > SxC )
+                   Then SxP := Sx - 2
+                   Else SxP := Sx + 2 ;
+                 If ( Sy > SyC )
+                   Then SyP := Sy - 2
+                   Else SyP := Sy + 2 ;
+               End ;
+
+           End ;
+
+       End ; { I }
+
+
+     If ( Full )  Then
+       Begin
+{
+  PutPixel ( SxP, SyP, White ) ;
+}
+         SetFillStyle ( SolidFill , LimbColor ) ;
+         FloodFill    ( SxP , SyP , LimbColor ) ;
+       End ;
+
+   End ;
+
+         { *********************** }
+
+
+
+   Begin
+
+     With sw Do
+       Begin
+
+         SetViewPort ( x1, y1, x2, y2, clipon ) ;
+
+         sxm := ( x2 - x1 + 1.0 ) / 2.0 ;
+         sym := ( y2 - y1 + 1.0 ) / 2.0 ;
+
+       End;
+
+
+    PlanetColor := Green ;
+
+    With S_Planet Do
+      Begin
+
+        NPl := Nr ;
+
+        XPl   :=  RectCoordPl [ NPl , 1 ] ;
+        YPl   :=  RectCoordPl [ NPl , 2 ] ;
+        ZPl   :=  RectCoordPl [ NPl , 3 ] ;
+        R_Pl  :=  R_PLANETS   [ NPl     ] ;
+
+        RPointMax := Sqrt ( Sqr ( RezPl [ NPl , 7 ] * AE ) -
+                            Sqr ( R_PL ) )  ;
+
+        RR := D / 2.0;
+
+        Xc  := X ;
+        Yc  := Y ;
+
+        SxC := Round ( X );
+        SyC := Round ( Y );
+
+        SxP := SxC ;
+        SyP := SyC ;
+
+      End ;
+
+     With sw Do
+       Begin
+
+         Dx := ( x2 - x1 + 1 ) / 2.0 ;
+         Dy := ( y2 - y1 + 1 ) / 2.0 ;
+
+         DxSc := GScale / XMax * Dx  ;
+         DySc := GScale / YMax * Dy  ;
+
+       End ;
+
+
+     If  ( PhasePl > Pi / 2.0 )
+       Then  DRRad :=   DrTerm
+       Else  DRRad := - DrTerm ;
+
+
+     If ( ( PhasePl - Pi / 2.0 ) < PhaseKrit )
+       Then
+         Begin
+
+           PozSunEarth  := ( Pi * 2.0 - PozSun ) + Pi / 2.0 ;
+
+           SPozSunEarth := Sin ( PozSunEarth ) ;
+           CPozSunEarth := Cos ( PozSunEarth ) ;
+
+           PhaseMin := True          ;
+           DRRad    := Abs ( DRRad ) ;
+
+         End
+       Else
+           PhaseMin := False ;
+
+
+
+
+
+        { Сотрем круг в звездном поле для Земли }
+        { ───────────────────────────────────── }
+
+     CalcLimb ;
+     Limb ( ColorNight  , True  ) ;
+
+
+         { Теpминатоp }
+         { ▄▄▄▄▄▄▄▄▄▄ }
+
+
+     SetColor ( PlanetColor ) ;
+     ColorPixel := PlanetColor ;
+
+     Prima      := True  ;
+     NPTermViz  := 0     ;
+
+     SDS := Sin ( - Pi / 2.0 - DeclSun ) ;
+     CDS := Cos ( - Pi / 2.0 - DeclSun ) ;
+
+     SLS := Sin ( - RaSun + Pi / 2.0 ) ;
+     CLS := Cos ( - RaSun + Pi / 2.0 ) ;
+
+     XPl  :=  RectCoordPl [ 3 , 1 ] ;
+     YPl  :=  RectCoordPl [ 3 , 2 ] ;
+     ZPl  :=  RectCoordPl [ 3 , 3 ] ;
+
+
+     For  I := NumEkvBeg  To  NumEkvEnd  Do
+       Begin { I }
+             { - }
+
+         X  := Materiki^[ I ].X / 5 ;
+         Y  := Materiki^[ I ].Y / 5 ;
+         Z  := Materiki^[ I ].Z / 5 ;
+
+         X1 := X                               ;
+         Y1 :=       Y *     CDS   +  Z * SDS  ;
+         Z1 :=       Y * ( - SDS ) +  Z * CDS  ;
+
+         X  := X1 *     CLS    +  Y1 * SLS  +  XPl ;
+         Y  := X1 * ( - SLS )  +  Y1 * CLS  +  YPl ;
+         Z  := Z1                           +  ZPl ;
+
+         RPoint := Sqrt ( X*X + Y*Y + Z*Z ) ;
+
+         If ( RPoint <= RPointMax )  Then
+           Begin  { Точка близко }
+                  { ------------ }
+
+              { Сфеpические кооpдинаты }
+              { ---------------------- }
+
+              SD   := Z / RPoint                     ;
+              CD   := SQRT ( ABS ( 1.0 - SD * SD ) ) ;
+              If ( CD > 2.0E-10 )  Then
+                 Begin
+                   SR := Y / RPoint / CD ;
+                   CR := X / RPoint / CD ;
+                 End
+               Else
+                 Begin
+                   SR := 1.0 ;
+                   CR := 0.0 ;
+                 End ;
+
+
+              ST   := SSTIME * CR  -  CSTIME * SR ;
+              CT   := CSTIME * CR  +  SSTIME * SR ;
+
+              SH   := SD * SFIS + CD * CFIS * CT ;
+
+              SA   :=   CD * ST ;
+              CA   := - SD * CFIS + CD * SFIS * CT ;
+
+
+               { Вычислены гоpизонтальные к - ты }
+               { ------------------------------- }
+
+              CDA  :=  CA   * CAOPT  +  SA   * SAOPT  ;
+	      CRO  := SHOPT *  SH    + CHOPT *  CDA   ;
+
+              SDA  := SAOPT * CA  -  CAOPT  * SA ;
+
+	      SPOZ := SDA;
+              CPOZ := SH * CHOPT  -  SHOPT * CDA ;
+
+	      YST  :=   FD * CPOZ / CRO ;
+	      XST  := - FD * SPOZ / CRO ;
+
+
+              If ( NPOLFIX )  Then
+
+                Begin { СТАБИЛИЗАЦИЯ ОСИ Y НА СЕВЕРНЫЙ ПОЛЮС }
+                      { ------------------------------------ }
+
+                  INDEX :=    XST ;
+                  XST   :=    XST  * CPOZNP  +  YST * SPOZNP ;
+                  YST   := - INDEX * SPOZNP  +  YST * CPOZNP ;
+
+                End ;
+
+
+              If  ( CRO > 0 )  Then
+
+                Begin  { CRO > 0 }
+                       { ------- }
+
+                   DxObj := ( XSt - CenterX ) * DxSc ;
+                   DyObj := ( YSt - CenterY ) * DySc ;
+
+                   Sx :=  Round ( Dx + DxObj ) ;
+                   Sy :=  Round ( Dy - DyObj ) ;
+
+
+                   SetColor ( ColorPixel ) ;
+
+                   If ( Prima )
+                     Then
+                       Begin
+                         PutPixel ( Sx, Sy, ColorPixel ) ;
+                         Prima := False ;
+                       End
+                     Else
+                         Line  ( SxOld, SyOld, Sx, Sy ) ;
+
+                   SxOld   := Sx ;
+                   SyOld   := Sy ;
+
+
+                     { Точки для заполнения сеpпа }
+                     { ────────────────────────── }
+
+                   DxPoint := ( Sx - Xc )               ;
+                   DyPoint := ( Sy - Yc ) * YAsp / XAsp ;
+
+                   RRad := Sqrt (   Sqr ( DxPoint )
+                                  + Sqr ( DyPoint ) ) ;
+
+                   If ( RRad > 1 )
+                       Then
+                         Begin
+                           If ( Not PhaseMin )
+                             Then
+                               Begin
+
+                                 SxPoint := DxPoint / RRad ;
+                                 SyPoint := DyPoint / RRad ;
+
+                                 RRad    := RRad + DRRad ;
+
+                                 Sx := Round ( RRad * SxPoint + Xc ) ;
+                                 Sy := Round ( RRad * SyPoint * XAsp / YAsp + Yc ) ;
+
+                               End
+                             Else
+                               Begin
+
+                                 DxPoint := DRRad *     CPozSunEarth ;
+                                 DyPoint := DRRad * ( - SPozSunEarth ) ;
+
+                                 Sx := Sx + Round ( DxPoint ) ;
+                                 Sy := Sy + Round ( DyPoint * XAsp / YAsp ) ;
+
+                                 DxPoint := ( Sx - Xc )               ;
+                                 DyPoint := ( Sy - Yc ) * YAsp / XAsp ;
+
+                                 RRad := Sqrt (   Sqr ( DxPoint )
+                                                + Sqr ( DyPoint ) ) ;
+                               End ;
+
+                         End
+                       Else
+                         Begin
+                           RRad := 2 * RR ;
+                         End ;
+
+                   PixColor := GetPixel ( Sx , Sy ) ;
+                   If ( PixColor = ColorNight )  Then
+                      Begin
+                        Inc ( NPTermViz ) ;
+                        SxTermViz [ NPTermViz ] := Sx ;
+                        SyTermViz [ NPTermViz ] := Sy ;
+                      End ;
+
+
+                End ;  { CRO > 0 }
+                       { ------- }
+
+           End     { Точка близко }
+                   { ------------ }
+         Else
+
+           Begin
+
+             Prima := True ;
+
+           End ;
+
+       End ; { I }
+             { - }
+
+
+        { Пpовеpка наличия теpминатоpа в поле зpения }
+        { ────────────────────────────────────────── }
+
+     Limb ( PlanetColor , False ) ;
+
+     If ( NPTermViz < 3 )  Then
+       Begin
+         If ( PhasePl  >  Pi / 2.0   )
+           Then
+             Begin
+               SetFillStyle ( SolidFill, ColorNight ) ;
+               FloodFill ( SxC , SyC ,   ColorNight );
+             End
+           Else
+             Begin
+               SetFillStyle ( SolidFill, PlanetColor ) ;
+               FloodFill ( SxC , SyC , PlanetColor );
+             End ;
+       End ;
+
+
+        { Пpосмотp Заливки освешенной части }
+        { ───────────────────────────────── }
+
+     For I := 1  To  NPTermViz   Do
+       Begin
+
+         Sx := SxTermViz [ I ] ;
+         Sy := SyTermViz [ I ] ;
+
+         PixColor := GetPixel ( Sx , Sy ) ;
+
+         If ( PixColor = ColorNight )  Then
+           Begin
+{
+  PutPixel ( Sx, Sy, White ) ;
+}
+             SetFillStyle ( SolidFill, PlanetColor ) ;
+             FloodFill ( Sx , Sy , PlanetColor );
+
+           End ;
+
+       End { I } ;
+
+
+
+      { Внешний кpуг }
+      { ──────────── }
+
+     Limb ( Black , False ) ;
+
+
+
+         { Матеpики }
+         { ▄▄▄▄▄▄▄▄ }
+
+
+     SLS := Sin ( - SGrinv ) ;
+     CLS := Cos ( - SGrinv ) ;
+
+
+     Prima := True ;
+
+     ColorPixel := Black ;
+
+     For  I := 1  To  NumPointMateriki + 1 Do
+       Begin { I }
+             { - }
+
+         If ( Materiki^[ I ].E  =  3 )  Then
+           ColorPixel := Blue ;
+
+         If ( Materiki^[ I ].E  =  2 )  Then
+           ColorPixel := Red ;
+
+         X1 := Materiki^[ I ].X / 5 ;
+         Y1 := Materiki^[ I ].Y / 5 ;
+         Z1 := Materiki^[ I ].Z / 5 ;
+
+         If ( I <= NumPointMateriki )
+           Then
+             Begin
+               X := X1 *     CLS    +  Y1 * SLS  +  XPl ;
+               Y := X1 * ( - SLS )  +  Y1 * CLS  +  YPl ;
+               Z := Z1                           +  ZPl ;
+             End
+           Else
+             Begin
+               X := X1 +  XPl ;
+               Y := Y1 +  YPl ;
+               Z := Z1 +  ZPl ;
+             End ;
+
+         RPoint := Sqrt ( X*X + Y*Y + Z*Z ) ;
+
+         If ( RPoint <= RPointMax )  Then
+
+           Begin  { Точка близко }
+                  { ------------ }
+
+              { Сфеpические кооpдинаты }
+              { ---------------------- }
+
+
+              SD   := Z / RPoint                     ;
+              CD   := SQRT ( ABS ( 1.0 - SD * SD ) ) ;
+              If ( CD > 2.0E-10 )  Then
+                 Begin
+                   SR := Y / RPoint / CD ;
+                   CR := X / RPoint / CD ;
+                 End
+               Else
+                 Begin
+                   SR := 1.0 ;
+                   CR := 0.0 ;
+                 End ;
+
+
+              ST   := SSTIME * CR  -  CSTIME * SR ;
+              CT   := CSTIME * CR  +  SSTIME * SR ;
+
+              SH   := SD * SFIS + CD * CFIS * CT ;
+
+              SA   :=   CD * ST ;
+              CA   := - SD * CFIS + CD * SFIS * CT ;
+
+
+               { Вычислены гоpизонтальные к - ты }
+               { ------------------------------- }
+
+
+              CDA  :=  CA   * CAOPT  +  SA   * SAOPT  ;
+	      CRO  := SHOPT *  SH    + CHOPT *  CDA   ;
+
+              SDA  := SAOPT * CA  -  CAOPT  * SA ;
+
+	      SPOZ := SDA;
+              CPOZ := SH * CHOPT  -  SHOPT * CDA ;
+
+	      YST  :=   FD * CPOZ / CRO ;
+	      XST  := - FD * SPOZ / CRO ;
+
+
+              If ( NPOLFIX )  Then
+
+                Begin { СТАБИЛИЗАЦИЯ ОСИ Y НА СЕВЕРНЫЙ ПОЛЮС }
+                      { ------------------------------------ }
+
+                  INDEX :=    XST ;
+                  XST   :=    XST  * CPOZNP  +  YST * SPOZNP ;
+                  YST   := - INDEX * SPOZNP  +  YST * CPOZNP ;
+
+                End ;
+
+
+              If  ( CRO > 0 )  Then
+
+                   Begin  { CRO > 0 }
+                          { ------- }
+
+                     DxObj := ( XSt - CenterX ) * DxSc ;
+                     DyObj := ( YSt - CenterY ) * DySc ;
+
+                     Sx :=  Round ( Dx + DxObj ) ;
+                     Sy :=  Round ( Dy - DyObj ) ;
+
+                     If (      ( Abs ( Sx ) < 6000 )
+                          And  ( Abs ( Sy ) < 6000 ) )  Then
+
+                       Begin  { В поле зpения }
+                              { ------------- }
+                         SetColor ( ColorPixel ) ;
+
+                         If ( I = NumPointMateriki + 1 )
+                           Then
+                             Begin  { Zaichik }
+                               SetColor     ( LightGray ) ;
+                               SetFillStyle ( SolidFill, LightGray ) ;
+                               FillEllipse  ( Sx, Sy, 5, 4 ) ;
+                             End
+                           Else
+                             Begin
+
+                               If ( Prima )
+                                 Then
+                                   Begin
+                                     PutPixel ( Sx, Sy, ColorPixel ) ;
+                                     Prima := False ;
+                                   End
+                                 Else
+                                     Line  ( SxOld, SyOld, Sx, Sy ) ;
+
+                               SxOld   := Sx ;
+                               SyOld   := Sy ;
+
+                               If  (  Materiki^[ I ].E  =  1 ) Then
+                               Prima := True ;
+
+                             End ;
+
+                       End ;  { В поле зpения }
+                              { ------------- }
+
+                   End ;  { CRO > 0 }
+                          { ------- }
+
+           End     { Точка близко }
+                   { ------------ }
+         Else
+
+             Prima := True ;
+
+
+       End ; { I }
+             { - }
+
+
+   End ;  { ShowMateriki }
+          { ------------ }
+
+
+
+
+(*
+
+Procedure ShowPlanet( C_Planet : PlanetType );
+Type
+ FPType = Array [1..4] of DOUBLE;
+Var
+ Ch          : char;
+ ArcCenter_X ,
+ ArcCenter_Y ,
+ P_Angle     ,
+ Sp,Cp,Ics   ,
+ ArcAngle    ,
+ ArcRadii    ,
+ DX          ,
+ Del         : DOUBLE;
+ Sign        : Integer;
+ Full,
+ Half,
+ NotVisible,
+ Normal      : Boolean;
+ S_Planet    : PlanetType;
+ FifteenGrades   : DOUBLE;
+ Phase       : DOUBLE;
+ PlanetColor : Byte;
+ rpt         : fptype;
+ PntFound    ,
+ OnePoint    : boolean;
+ RR          : DOUBLE   ;
+
+
+function Inside ( xp, yp : Integer ) : boolean;
+Begin
+With sw Do
+   Inside :=     ( xp > x1+1 )
+             And ( xp < x2-1 )
+             And ( yp > y1+1 )
+             And ( yp < y2-1 );
+ End;
+
+
+               { Finds point inside image }
+               { ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ }
+
+ Function FindPoint (         onlyext : boolean ;
+                       var  one_point : boolean ;
+                       var         rp : fptype  ) : boolean;
+
+const
+ Gr1 : DOUBLE = Pi / 180 ;
+
+var
+ cx, cy : Integer;
+ loop   : integer;
+ Cont   ,
+ OK     : boolean;
+ sangle ,
+ eangle ,
+ step   ,
+ angle  : DOUBLE;
+ ch     : char;
+ fp     : Byte;
+Begin
+
+ loop      := 0          ;
+ one_point := False      ;
+ fp        := 0          ;
+ sangle    := S_Planet.P ;
+
+ Repeat
+
+   inc ( loop );
+
+   If loop = 1 Then step := -1
+               Else step :=  1;
+
+   eangle := sangle + step * ( Pi / 2 - 5 * Gr1) ;
+   angle  := sangle ;
+   OK     := false;
+   Cont   := True ;
+
+   while NOT OK And ( step * angle < step * eangle ) Do
+     Begin
+
+       angle := angle + step * Gr1;
+
+       cx := Round ( S_Planet.X -
+                   ( S_Planet.D / 2.0 - 2 ) * sin( angle ) )  ;
+       cy := Round ( S_Planet.Y -
+                   ( S_Planet.D / 2.0 - 2 * YAsp/XAsp ) * cos( angle ) * XAsp/YAsp ) ;
+
+       OK := Inside ( cx, cy );
+
+       If ( OK ) Then
+         putpixel ( cx, cy, white );
+
+       If Cont Then Cont:= OK;
+
+     End;
+
+   If OK Then
+     Begin
+       rp[2*fp+1] := cx;
+       rp[2*fp+2] := cy;
+       OK := Cont;
+       fp := fp+1;
+     End;
+
+ until OK OR ( loop = 2 );
+
+
+ OK := fp <> 0;
+
+ If ( NOT OnlyExt And NOT OK ) Then
+   Begin
+     loop := 0;
+     repeat
+       inc(loop);
+
+       sangle := S_Planet.P ;
+       If loop=1
+         Then step:= -1
+         Else step:=  1;
+       eangle := sangle + step * ( ArcAngle - 5 * Gr1) ;
+       angle  := sangle ;
+       Cont   := True;
+       while NOT OK And ( step*angle < step*eangle ) Do
+         Begin
+           angle := angle + step * Gr1;
+           cx := Round ( ArcCenter_X - ( ArcRadii + 4 ) * sin( angle ) ) ;
+           cy := Round ( ArcCenter_Y - ( ArcRadii + 4 * YAsp/XAsp ) * cos( angle ) * XAsp / YAsp );
+           OK := Inside(cx,cy);
+
+           If ( OK ) Then
+             putpixel ( cx, cy, white ) ;
+           If Cont Then Cont:= OK;
+         End;
+
+       If OK Then
+         Begin
+           rp[2*fp+1] := cx;
+           rp[2*fp+2] := cy;
+           OK := Cont;
+           fp := fp + 1;
+         End;
+
+     until OK OR ( loop = 2 );
+
+   End;
+ FindPoint := ( fp <> 0 );
+ one_point := ( fp  = 1 );
+
+End;   { FindPoint }
+       { --------- }
+
+Begin
+
+ PlanetColor := PlColArr [ C_Planet.Nr ] ;
+
+ S_Planet := C_Planet ;
+ FifteenGrades := Pi * 0.2 / 18.0;
+ Full       := False;
+ Half       := False;
+ NotVisible := False;
+ Normal     := False;
+
+ With S_Planet Do
+ Begin
+
+  RR := D / 2.0;
+
+     { Position }
+     { -------- }
+  P_Angle:= P - Pi / 2 ;
+  Sp := Sin ( P_Angle );
+  Cp := Cos ( P_Angle );
+
+      { Phase }
+      { ----- }
+  If ( F > Pi ) Then Phase:= 2 * Pi - F Else Phase:=F;
+  Phase:= Pi - Phase;
+  Del:= - RR * Cos( Phase );
+  If ( Abs(Del) <= 2 ) OR ( Abs( Phase - Pi / 2 ) <  Pi / 36.0 ) { Phase=90 }
+  Then
+   Half:=True
+  Else
+  Begin
+   If ( ( Abs( RR - del ) < 3 )  OR ( Pi - Phase < FifteenGrades ) )  { Phase = 180 }
+   Then
+    NotVisible:=True
+   Else
+   Begin
+    If ( Abs( RR + del ) < 3 ) OR ( Phase < FifteenGrades ) { Phase = 0 }
+    Then
+     Full:=True
+    Else
+     Begin
+     Dx := ( RR * RR - Del * Del ) / 2.0 / Del;
+
+     { Position }
+     ArcCenter_X := S_Planet.X + Dx * Cp ;
+     ArcCenter_Y := S_Planet.Y - Dx * XAsp / YAsp * Sp ;
+
+     ArcRadii := Abs ( Dx + Del);
+     If ( ArcRadii > MaxRadius ) Then ArcRadii:=MaxRadius;
+     Normal:=True;
+     ArcAngle:= ArcTan( RR / Abs(Dx) );
+    End;
+  End;
+ End;
+ End;
+
+ With S_Planet Do
+ Begin
+
+  SX := Trunc(X);
+  SY := Trunc(Y);
+
+    { Сотрем круг }
+    { ----------- }
+  SetColor(DarkGray);
+  SetFillStyle(SolidFill,DarkGray);
+  FillEllipse(SX,SY,round(RR),round(RR * XAsp / YAsp));
+
+
+  SetColor(PlanetColor);
+  SetFillStyle(SolidFill,PlanetColor);
+
+  If Full   Then
+  Begin
+   FillEllipse(SX,SY,Round(RR),round(RR * XAsp / YAsp));
+  End;
+  If Normal Then
+  Begin
+   Ellipse ( SX, SY, 0,360, Round ( RR ), Round ( RR * XAsp /YAsp ) );
+   Ellipse(Trunc(ArcCenter_X),Trunc(ArcCenter_Y),0,360,
+           Trunc(ArcRadii)   ,Trunc(ArcRadii * XAsp / YAsp));
+
+   PntFound:=FindPoint(False,OnePoint,rpt);
+   If PntFound Then
+     Begin
+       FloodFill(round(rpt[1]),round(rpt[2]),PlanetColor);
+
+       If NOT OnePoint Then
+         FloodFill(round(rpt[3]),round(rpt[4]),PlanetColor);
+     End;
+
+   SetColor(GetBkColor);
+   Ellipse(SX,SY,0,360, Round(RR),Round(RR * XAsp / YAsp));
+   Ellipse(Trunc(ArcCenter_X),Trunc(ArcCenter_Y),0,360,
+           Trunc(ArcRadii),Trunc(ArcRadii * XAsp / YAsp));
+
+  End;
+
+  If Half Then
+  Begin
+   Ellipse(SX,SY,0,360,Round(RR),Round(RR * XAsp / YAsp));
+   Ics:=Cp;
+   Cp:=Sp; Sp:=-Ics;
+   Line( SX - Round(RR * Cp),SY + Round(RR * Sp * XAsp/YAsp) ,
+         SX + Round(RR * Cp),SY - Round(RR * Sp * XAsp/YAsp));
+
+   If ( Inside(SX + Round( 2 * Sp),SY + Round( 2 * Cp)) )
+    Then
+     FloodFill(SX + Round( 2 * Sp),SY + Round( 2 * Cp),PlanetColor)
+    Else
+     Begin
+      PntFound:=FindPoint(True,OnePoint,rpt);
+      If PntFound Then
+        Begin
+          FloodFill(round(rpt[1]),round(rpt[2]),PlanetColor);
+          If NOT OnePoint Then
+            FloodFill(round(rpt[3]),round(rpt[4]),PlanetColor);
+        End;
+     End;
+
+   SetColor(GetBkColor);
+
+   Ellipse ( SX, SY, 0, 360, Round ( RR ) , Round ( RR * XAsp / YAsp) );
+
+   Line( SX - Round(RR * Cp),SY + Round(RR * Sp * XAsp/YAsp) ,
+         SX + Round(RR * Cp),SY - Round(RR * Sp * XAsp/YAsp));
+
+  End;
+  If NotVisible Then
+  Begin
+   Ellipse ( SX,SY,
+             Trunc ( (    Pi / 2 + P_Angle ) * 180 / Pi ) ,
+             Trunc ( (3 * Pi / 2 + P_Angle ) * 180 / Pi ) ,
+             Round ( RR               ),
+             Round ( RR * XAsp / YAsp )  );
+  End;
+End;
+
+End;{ Show Planet }
+
+*)
+
+
+
+Procedure ShowPlanets;
+Var
+
+ CCol     : Byte        ;
+ SColor   : Byte        ;
+ sradii   : Word        ;
+ Ind      : Integer     ;
+ sx       ,
+ sy       : Integer     ;
+
+ DMvPlanet,
+ SradiiReal,
+ sxm      ,
+ sym      : DOUBLE      ;
+
+ C_P      : PointType   ;
+ vp       : viewporttype;
+
+Begin
+
+ getviewsettings(vp);
+
+ With sw Do
+ Begin
+  setviewport(x1,y1,x2,y2,clipon);
+  sxm := (x2-x1+1.0)/2.0;
+  sym := (y2-y1+1.0)/2.0;
+ End;
+
+ SortPlanetsInField;
+
+
+ For Ind := MaxPlanets DownTo 1 Do
+
+ If Planet[Ind].Visible Then    { In field }
+                                { -------- }
+  With Planet[Ind] Do
+
+   Begin { Planet[Ind] }
+         { ----------- }
+
+    D := D_IZO * GScale / XMax * ( sw.x2 - sw.x1 + 1 ) / 2.0;
+
+    NowVisible:=
+     ( Abs(x-sxm) < sxm + D / 2.0              )
+     And
+     ( Abs(y-sym) < sym + D / 2.0 * XAsp / YAsp);
+
+
+    If ( NowVisible ) Then
+
+    Begin  { NowVisible }
+           { ---------- }
+
+     If ( D > 10.0 )
+      Then
+       Begin   { Диск }
+               { ---- }
+          ShowMateriki ( Planet [ Ind ] ) ;
+       End     { Диск }
+               { ---- }
+      Else
+
+       Begin  { Звездообpазно }
+              { ------------- }
+        c_p.x := Trunc (x);
+        c_p.y := Trunc (y);
+
+        ccol  := getcolor;
+
+        If ( Planet[Ind].Nr > Max_PL_PPLFLD )  Then
+
+          Begin  { SATELLIT }
+
+            SetWriteMode(XORPut);
+            If ( Planet[Ind].P > 0 )
+              Then SetColor ( QuadColor )
+              Else SetColor ( LightRed  );
+
+            Rectangle((c_p.X-SRStp), Trunc(c_p.Y - SRStp * XAsp / YAsp),
+                      (c_p.X+SRStp), Trunc(c_p.Y + SRStp * XAsp / YAsp + 1));
+
+            Line     ( c_p.X-SRStp-4, c_p.Y , c_p.X-SRStp-1, c_p.Y ) ;
+            Line     ( c_p.X+SRStp+1, c_p.Y , c_p.X+SRStp+4, c_p.Y ) ;
+
+            SetWriteMode(NormalPut);
+
+          End    { SATELLIT }
+
+         Else
+
+          Begin  { PLANET }
+                 { ------ }
+
+            SetFillStyle( solidfill, PlColArr [ Planet[Ind].Nr ] );
+
+            DMvPlanet :=  MVMAX - M ;
+
+            SradiiReal := 1 +  KMD * DMvPlanet ;
+
+            If SRadiiReal > 6 Then SRadiiReal := 6.0 ;
+            If SRadiiReal < 1 Then SRadiiReal := 1.0 ;
+
+            Sradii := Trunc ( Sradiireal ) ;
+
+            SColor := PlColArr [ Planet[Ind].Nr ] ;
+            SetColor ( SColor );
+            SetFillStyle( Solidfill, SColor );
+            Sx := c_p.x ;
+            Sy := c_p.y ;
+
+            Case SRadii Of
+
+                 1:  Begin
+                          PutPixel ( Sx, Sy, SColor ) ;
+
+                          PutPixel ( Sx-2, Sy, SColor ) ;
+                          PutPixel ( Sx+2, Sy, SColor ) ;
+                          PutPixel ( Sx, Sy-2, SColor ) ;
+                          PutPixel ( Sx, Sy+2, SColor ) ;
+
+                     End ;
+
+                 2:  Begin
+                          PutPixel ( Sx  , Sy   , SColor ) ;
+                          PutPixel ( Sx+1, Sy   , SColor ) ;
+
+                          PutPixel ( Sx-2, Sy, SColor ) ;
+                          PutPixel ( Sx+3, Sy, SColor ) ;
+                          PutPixel ( Sx, Sy-2, SColor ) ;
+                          PutPixel ( Sx, Sy+2, SColor ) ;
+
+                     End ;
+
+                 3:  Begin
+                          Line ( Sx-1 , Sy   , Sx+1 , Sy   ) ;
+                          Line ( Sx   , Sy-1 , Sx   , Sy+1 ) ;
+
+                          PutPixel ( Sx-3, Sy, SColor ) ;
+                          PutPixel ( Sx+3, Sy, SColor ) ;
+                          PutPixel ( Sx, Sy-3, SColor ) ;
+                          PutPixel ( Sx, Sy+3, SColor ) ;
+
+                     End ;
+
+                 4: Begin
+                          Line ( Sx-1  , Sy-1   , Sx+1  , Sy-1   ) ;
+                          Line ( Sx-1  , Sy     , Sx+1  , Sy     ) ;
+                          Line ( Sx-1  , Sy+1   , Sx+1  , Sy+1   ) ;
+
+                          PutPixel ( Sx-3, Sy, SColor ) ;
+                          PutPixel ( Sx+3, Sy, SColor ) ;
+                          PutPixel ( Sx, Sy-3, SColor ) ;
+                          PutPixel ( Sx, Sy+3, SColor ) ;
+
+                     End ;
+
+                 5: Begin
+
+                          Line ( Sx-1 , Sy-1 , Sx+1 , Sy-1 ) ;
+                          Line ( Sx-2 , Sy   , Sx+2 , Sy   ) ;
+                          Line ( Sx-1 , Sy+1 , Sx+1 , Sy+1 ) ;
+                          Line ( Sx   , Sy-2 , Sx   , Sy+2 ) ;
+
+                          PutPixel ( Sx-4, Sy, SColor ) ;
+                          PutPixel ( Sx+4, Sy, SColor ) ;
+                          PutPixel ( Sx, Sy-4, SColor ) ;
+                          PutPixel ( Sx, Sy+4, SColor ) ;
+
+                     End ;
+
+                 6: Begin
+                          Line ( Sx-1 , Sy-2 , Sx+1 , Sy-2 ) ;
+                          Line ( Sx-2 , Sy-1 , Sx+2 , Sy-1 ) ;
+                          Line ( Sx-3 , Sy   , Sx+3 , Sy   ) ;
+                          Line ( Sx-2 , Sy+1 , Sx+2 , Sy+1 ) ;
+                          Line ( Sx-1 , Sy+2 , Sx+1 , Sy+2 ) ;
+
+                          PutPixel ( Sx-5, Sy, SColor ) ;
+                          PutPixel ( Sx+5, Sy, SColor ) ;
+                          PutPixel ( Sx, Sy-4, SColor ) ;
+                          PutPixel ( Sx, Sy+4, SColor ) ;
+
+                     End ;
+
+
+            End ; { Case }
+
+
+          End    { PLANET } ;
+
+
+        SetColor(ccol);
+
+
+       End ;  { Звездообpазно }
+              { ------------- }
+
+    End ;  { NowVisible }
+           { ---------- }
+
+   End;  { Planet[Ind] }
+         { ----------- }
+
+
+ With vp Do setviewport(x1,y1,x2,y2,clipon);
+
+End; { ShowPlanets }
+
+End.

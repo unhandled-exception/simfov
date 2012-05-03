@@ -1,0 +1,105 @@
+
+{$F+,O+}
+
+
+ UNIT PPRENEW ;
+
+ INTERFACE
+
+	PROCEDURE PRENEW (     JDE1, JDE2  : DOUBLE ;
+                          VAR    RA, DECL  : DOUBLE   ) ;
+
+
+ IMPLEMENTATION
+
+	PROCEDURE PRENEW (     JDE1, JDE2  : DOUBLE ;
+                          VAR    RA, DECL  : DOUBLE   ) ;
+{ ---------------------------------------------------------------
+     J2000.0  2451545.0
+     B1900.0  2415020.313516463
+     B1950.0  2433282.423455513
+            èpo§o´¶®‚e´Ï≠oc‚Ï Ó´®a≠c™o£o c‚o´e‚®Ô 36525 §≠e©.
+            Åecce´e¢a ÌØoxa §´Ô J2000:  2000.001278.
+  --------------------------------------------------------------- }
+
+   CONST
+
+     HY  : Double =    36525.0           ;
+     T0  : Double =  2451545.0           ;
+     SR  : Double =   206264.8062470964  ;
+
+   VAR
+
+
+     DT,DT2,DT3,T,T2,S1,S2,S3,C1,C2,C3      : DOUBLE ;
+     X, Y, Z                                : DOUBLE ;
+     SRA, CRA, PI2                          : DOUBLE ;
+
+
+   BEGIN
+
+      PI2 := PI + PI ;
+
+      T   := ( JDE1 - T0   ) / HY ;
+      DT  := ( JDE2 - JDE1 ) / HY ;
+
+      T2  := T   * T  ;
+      DT2 := DT  * DT ;
+      DT3 := DT2 * DT ;
+
+      S2  :=      ( 2306.2181  + 1.39656  * T   - 0.000139 * T2) * DT  ;
+      S1  := S2 + (    0.30188 - 0.000344 * T ) * DT2 + 0.017998 * DT3 ;
+      S3  := S2 + (    1.09468 + 0.000066 * T ) * DT2 + 0.018203 * DT3 ;
+      S2  :=      ( 2004.3109  - 0.85330  * T - 0.000217 * T2)   * DT  ;
+      S2  := S2 - (    0.42665 + 0.000217 * T ) * DT2 - 0.041833 * DT3 ;
+
+      S1  := S1 / SR ;
+      S2  := S2 / SR ;
+      S3  := S3 / SR ;
+
+      C1  := COS ( S1 ) ;
+      C2  := COS ( S2 ) ;
+      C3  := COS ( S3 ) ;
+
+      S1  := SIN ( S1 ) ;
+      S2  := SIN ( S2 ) ;
+      S3  := SIN ( S3 ) ;
+
+
+      Z   := SIN  ( DECL ) ;
+      Y   := SQRT ( 1.0 - Z * Z ) ;
+      SRA := SIN  ( RA ) ;
+      CRA := COS  ( RA ) ;
+      X   := CRA * Y ;
+      Y   := SRA * Y ;
+
+
+      DT  := X * C1 - Y * S1 ;
+      DT2 := X * S1 + Y * C1 ;
+      DT3 := Z               ;
+
+      X   := DT * C2 - DT3 * S2 ;
+      Y   := DT2                ;
+      Z   := DT * S2 + DT3 * C2 ;
+
+      DT  := X * C3 - Y * S3 ;
+      DT2 := X * S3 + Y * C3 ;
+      DT3 := Z               ;
+
+      X   := DT  ;
+      Y   := DT2 ;
+      Z   := DT3 ;
+
+      RA := ARCTAN ( Y / X ) ;
+
+        IF ( X  < 0.0 ) THEN RA := RA + PI  ;
+        IF ( RA < 0.0 ) THEN RA := RA + PI2 ;
+
+      IF ( (RA + 1.0E-9 ) >= PI2 )  THEN RA := RA - PI2 + 1.0E-9 ;
+
+      DECL := ARCTAN ( Z / SQRT (  X * X  +  Y * Y  )  ) ;
+
+
+   END ;
+
+ END.

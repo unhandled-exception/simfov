@@ -1,0 +1,9 @@
+ DE200 = Array [ 1 .. 828 ] Of Double ;
+ DE200File : File Of Double ;
+
+ Read ( DE200File , JdBegDE200 ) ;
+
+ NRecDE200 := FileSize ( DE200File )
+              Div ( SizeOf ( DE200 ) Div 8 );
+
+ JdEndDE200 := JdBegDE200 + 32 * NRecDE200 - 1 ;
