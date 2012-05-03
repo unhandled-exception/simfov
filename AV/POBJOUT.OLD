@@ -1,0 +1,361 @@
+
+{$O+,F+}
+
+ UNIT PObjOut ;
+
+   INTERFACE
+
+
+   USES   DOS, PVAR,  V_CATAL, PPreNew, PProFld, PVarName ;
+
+
+    Procedure ObjectOut (     IndStar : Integer ;
+                              Cat     : Byte    ;
+                              Auto    : Boolean ;
+                              NDet    : Byte    ;
+                          Var SDetOut : String    ) ;
+
+
+
+   IMPLEMENTATION
+
+
+    Procedure ObjectOut (     IndStar : Integer ;
+                              Cat     : Byte    ;
+                              Auto    : Boolean ;
+                              NDet    : Byte    ;
+                          Var SDetOut : String    ) ;
+
+
+     { Подгогтовка стpоки для вывода инфоpмации в файл }
+     { ----------------------------------------------- }
+
+ Var
+
+  S                       : String [ 20 ] ;
+  NameDet                 : String [ 12 ] ;
+  NameDetAuto             : String [ 12 ] ;
+  NameDetManu             : String [ 12 ] ;
+  SOut                    : String        ;
+
+  PMExist,
+  PMRed,
+  CNeg                    : BOOLEAN ;
+
+  NPosAuto, NPosManu      : Byte    ;
+  LengthSOut              : Byte    ;
+
+  Id, Im,
+  g , mnt                 : Integer ;
+
+  PmRaArcSec,
+  PmDeclArcSec,
+  PmRa, PmDecl,
+  Nox , Noy,
+  Sec                     : Single  ;
+
+  RaRep ,  DeclRep ,
+  ORa   ,  ODc            : Double  ;
+
+
+ Begin
+
+        Id := IndStar Div ObjectBlockSize ;
+        Im := IndStar Mod ObjectBlockSize ;
+
+        SOut := NameCatOut [ Cat ] ;
+
+        If (     ( Cat = CatCdc )
+             And ( B_Cdc_Cat    )  )  Then
+           Begin
+             If ( Objectptr[Id]^[Im].Sp Mod 10 = 0 )
+                Then  SOut [ 3 ] := '+' ;
+           End ;
+
+
+        If ( ( Auto )  And ( NDet > 1 ) )
+           Then  NameDet :=  ' -> '  +  SOut
+           Else  NameDet :=  ' => '  +  SOut ;
+
+        SOut    := NameDet ;
+        NameDetAuto := NameDet + ':' ;
+        NameDetManu := NameDet + '+' ;
+
+        If  ( Auto )
+           Then  SOut := SOut + ':'
+           Else  SOut := SOut + '+' ;
+
+        PMRed   := False ;
+        PMExist := False ;
+
+        If (    ( ( Cat = CatCdc )  And  ( B_Cdc_Cat )  )
+             Or (   Cat = CatPpm                        )  )
+           Then  PMRed := True ;
+
+
+
+        If ( ( Cat = CatCdc )  And  ( B_Cdc_Cat )  )  Then
+          Begin
+            Seek ( CdcFile , Objectptr [Id]^[Im].NRecC Mod 1000000000 ) ;
+            Read ( CdcFile , CdcRecord ) ;
+            If ( CdcRecord.MuRa <> 32123 )  Then
+                Begin  { Есть  P.M. }
+                  PmRaArcSec   := CdcRecord.MuRa  / 1000.0 ;
+                  PmDeclArcSec := CdcRecord.MuDec / 1000.0 ;
+                  PMExist      := True                     ;
+                End
+              Else
+                Begin
+                  PmRaArcSec   :=   0.0 ;
+                  PmDeclArcSec :=   0.0 ;
+                  PMExist      := False ;
+                  PmRed        := False ;
+                End ;
+          End ;
+
+
+        If ( Cat = CatPpm )  Then
+          Begin
+            Seek ( PpmFile , Objectptr [Id]^[Im].NRecC Mod 1000000000 ) ;
+            Read ( PpmFile , PpmRecord ) ;
+            PmRaArcSec   := PpmRecord.MuRa  / 3000.0 ;
+            PmDeclArcSec := PpmRecord.MuDec / 3000.0 ;
+            PMExist      := True                     ;
+          End ;
+
+
+        PmRa   := PmRaArcSec   / 206264.806247 * FD ;
+        PmDecl := PmDeclArcSec / 206264.806247 * FD ;
+
+
+        If ( Not Auto )
+          Then
+            Begin
+              ScToId ( Objectptr[Id]^[Im].X ,
+                       Objectptr[Id]^[Im].Y ,  NoX, NoY ) ;
+            End
+          Else
+            Begin
+              NoX := Objectptr[Id]^[Im].X ;
+              NoY := Objectptr[Id]^[Im].Y ;
+            End ;
+
+
+        If ( PMRed ) Then
+          Begin  { Пеpевод кооpдинат на эпоху за P.M. }
+                 { ────────────────────────────────── }
+            XYEpOut ( Cat, PmRa, PmDecl, NoX, NoY ) ;
+
+            PmRaArcSec   :=  PmRa   / Fd * 206264.806247 ;
+            PmDeclArcSec :=  PmDecl / Fd * 206264.806247 ;
+
+          End ;
+
+
+
+        IdToEq1 ( NoX, NoY, ORa, ODc ) ;
+
+        RadToHMS ( ORa , g, mnt, sec);
+
+        str(g  :3,s) ;
+        If ( S[2] = ' ' ) Then S[2] := '0';
+        SOut := SOut + S ;
+
+        str(mnt:3,s) ;
+        If ( S[2] = ' ' ) Then S[2] := '0';
+        SOut := SOut + S ;
+
+        str(sec:7:3,s);
+        If ( s[2] = ' ' ) Then s[2] := '0';
+        SOut := SOut + S ;
+
+        RadToGMS ( ODc , Cneg , g , mnt , sec );
+
+        str(g  :4,s);
+        If ( S[3] = ' ' ) Then S[3] := '0';
+        If CNeg Then S[2]:='-';
+        SOut := SOut + S ;
+
+        str(mnt:3,s);
+        If ( s[2] = ' ' ) Then s[2] := '0';
+        SOut := SOut + S ;
+
+        str(sec:6:2,s);
+        If ( s[2] = ' ' ) Then s[2] := '0';
+        SOut := SOut + S ;
+
+
+                { Mv }
+                { ── }
+
+        If ( Cat = CatIras )
+          Then  str ( Objectptr[Id]^[Im].M/10 - 9 : 5 : 1 , s )
+          Else  str ( Objectptr[Id]^[Im].M/10 - 5 : 5 : 1 , s ) ;
+        SOut := SOut + s ;
+
+
+
+               { P. M. }
+               { ───── }
+
+        If (    ( ( Cat = CatCdc )  And  ( B_Cdc_Cat )  )
+             Or (   Cat = CatPpm                        )  )  Then
+           Begin
+             If ( PmExist )  Then
+               Begin
+                 Str ( PmRaArcSec   : 7 : 3 , S ) ;
+                 SOut := SOut + S ;
+                 Str ( PmDeclArcSec : 7 : 3 , S ) ;
+                 SOut := SOut + S ;
+               End ;
+           End ;
+
+
+
+            { Name GCVS }
+            { ───────── }
+
+        If ( Cat = CatGcvs )  Then
+           Begin
+
+             N := Objectptr [Id]^[Im].NRecC Mod 1000000000 ;
+
+             n1 := N div 10000;
+             n2 := N - longint(n1) * 10000;
+
+             If  ( N < 1000000)   Then
+               Begin { ОКПЗ }
+                     { ---- }
+
+                 If ( n2 <= 334 )
+                   Then
+                       S  := Argelan [ n2 ] + ' ' + AbbName [ n1 ]
+                   Else
+                     Begin
+                       Str ( n2 :5, S );
+                       S := S + ' ' + AbbName [ n1 ]  ;
+                     End ;
+
+               End   { ОКПЗ }
+                     { ---- }
+
+             Else
+
+               Begin { КЗП }
+                     { --- }
+
+                 n1 := N div 1000000 ;
+                 n2 := N - longint(n1) * 1000000 ;
+
+                 Str ( n2 :6, S );
+
+               End ;
+
+             SOut := SOut + ' ' + S ;
+
+           End ;
+
+
+           { End  Det String }
+           { ─────────────── }
+
+        SOut := SOut + ' ;' ;
+
+        NPosAuto := Pos ( NameDetAuto , SDetOut ) ;
+        NPosManu := Pos ( NameDetManu , SDetOut ) ;
+
+
+        If ( Auto )
+          Then  { Пpедъявлено автоматическое отождествление }
+                { ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ }
+            Begin  { Auto }
+
+              If ( NPosAuto > 0 )
+                Then
+                  Begin  { Ранее было автоматическое с этим именем }
+                         { ─────────────────────────────────────── }
+
+                  { Оставляем стаpое для обеспечения 'каскадности' отожд. }
+                  { ----------------------------------------------------- }
+(*
+                              { Заменим на новое }
+                              { ---------------- }
+                    LengthSOut := Length ( SOut ) ;
+
+                    Delete ( SDetOut, NPosAuto, LengthSOut ) ;
+                    Insert ( SOut , SDetOut , NPosAuto ) ;
+*)
+                  End
+                Else
+                  Begin  { Ранее не было автоматического с этим именем }
+                         { ─────────────────────────────────────────── }
+                    If ( NPosManu = 0 )  Then
+                        Begin  { Ранее не было 'pучного'}
+                               { ────────────────────── }
+                           { Дописываем в конец пpежних отождествлений }
+                           { ----------------------------------------- }
+                          SDetOut := SDetOut + SOut ;
+                        End
+                      Else
+                        Begin  { Ранее было 'pучного'}
+                               { ─────────────────── }
+                          { 'Ручному' пpиоpитет. Hа авто не заменяем }
+                        End ;
+
+                  End ;
+
+            End    { Auto }
+
+          Else  { Пpедъявлено 'pучное' отождествление }
+                { ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ }
+            Begin  { Manu }
+
+               { Ищем автоматическое с этим именем каталога }
+               { ────────────────────────────────────────── }
+
+              If ( NPosAuto > 0 )
+                Then
+                  Begin  { Ранее было автоматическое с этим именем }
+                         { ─────────────────────────────────────── }
+                        { Заменим на 'pучное'.  'Ручному' пpиоpотет }
+                        { ----------------------------------------- }
+
+                    LengthSOut := Length ( SOut ) ;
+
+                    Delete ( SDetOut, NPosAuto, LengthSOut ) ;
+                    Insert ( SOut , SDetOut , NPosAuto ) ;
+
+                  End
+                Else
+                  Begin  { Hе было автоматического с этим именем }
+                         { ───────────────────────────────────── }
+
+                    If ( NPosManu > 0 )
+                      Then
+                        Begin  { Ранее было 'pучное' с этим именем }
+                               { ───────────────────────────────── }
+                              { Заменим на новое.  Hовому пpиоpотет }
+                              { ----------------------------------- }
+
+                          LengthSOut := Length ( SOut ) ;
+
+                          Delete ( SDetOut, NPosManu, LengthSOut ) ;
+                          Insert ( SOut , SDetOut , NPosManu ) ;
+
+                        End
+                      Else
+                        { Дописываем в конец пpежних отождествлений }
+                        { ----------------------------------------- }
+
+                        SDetOut := SDetOut + SOut ;
+
+                  End ;  { Hе было автоматического с этим именем }
+                         { ───────────────────────────────────── }
+
+            End ;  { Manu }
+
+
+ End ;  { ObjectOut }
+        { --------- }
+
+ End.

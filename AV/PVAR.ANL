@@ -1,0 +1,775 @@
+
+{$F+,O+}
+
+Unit PVar;
+
+Interface
+
+  USES  V_CATAL, Dos ;
+
+
+  CONST
+
+          {  äéãàóÖëíÇé àëèéãúáìÖåõï ëíêÄHàñ  }
+          {  *******************************  }
+
+    NGPages = 2 ;       { Ñ´Ô Æ‚´†§™® £p†‰®™® - 1, §´Ô p†°Æ‚Î - 2 }
+                        { *************************************** }
+
+
+    MaxPlanets      =    55 ;
+    MaxSatellits    =    40 ;
+
+    ObjectBlockSize =   100 ;
+    GraphBuffSize   = 24576 ;
+
+    ObjectMaxBlocksInit = 320 ;
+
+    SEKRAD : Double =    206264.806247 ;
+
+    H24    : Double =     86400.0      ;
+
+    AE     : Double = 149597870.0      ;
+
+    GR     : Double = 3600.0 / 206264.806247 ;
+    RG     : Double = 206264.806247 / 3600.0 ;
+
+    STEPGR    =  1.25 ;
+    MAX_NODES = 19    ;
+
+    PathToBGI   = '' ;
+
+    PlanetName : Array [1..15] Of String[9] = (
+              'Mercury ','Venus   ','Earth   ','Marth   ','Jupiter ',
+              'Saturn  ','Uran    ','Neptun  ','Pluto   ','Moon    ',
+              'Sun     ','  Io    ','Europa  ','Ganimed ','Kallisto');
+
+    MonthName  : Array [ 1 .. 12 ] Of String [ 3 ] = (
+                   'Jan','Feb','Mar','Apr','May','Jun',
+                   'Jul','Aug','Sep','Oct','Nov','Dec' ) ;
+    DayOfWeek : array [0..6] of String [9] =
+                    ('Sunday','Monday','Tuesday',
+                     'Wednesday','Thursday','Friday',
+                     'Saturday');
+
+
+    NameCatOut  : Array [ 1 .. 9 ]  Of String [ 4 ] = (
+     'PPM ', 'BS  ', 'HD  ','GCVS' , 'AC  ' , 'Gsc ','Iras','Imp ', 'IrS ' );
+
+
+
+ CatFile      : CatFilesType =
+               (
+                 PPMFileName         : 'PPM.SRT'           ;
+                 PPMKeyFileName      : 'PPM.GRN'           ;
+                 BsFileName          : 'BS.SRT'            ;
+                 BsKeyFileName       : 'BS.GRN'            ;
+                 HdFileName          : 'Hd.SRT'            ;
+                 HdKeyFileName       : 'Hd.GRN'            ;
+                 GcvsFileName        : 'Gcvs.SRT'          ;
+                 GcvsKeyFileName     : 'Gcvs.GRN'          ;
+                 CdcFileName         : '=====\Cdc.SRT'     ;
+                 CdcKeyFileName      : '=====\Cdc.GRN'     ;
+                 GSCFileName         : '=====\GSC.SRT'     ;
+                 GSCAddFileName      : '=====\GSC.ADD'     ;
+                 GSCKeyFileName      : '=====\GSC.GRN'     ;
+                 IrasFileName        : 'Iras.SRT'          ;
+                 IrasKeyFileName     : 'Iras.GRN'               );
+
+
+    R_PLANETS : ARRAY [ 1 .. 15 ] OF Double = (   2437.0   ,
+                                                  6050.0   ,
+                                                  6378.137 ,
+                                                  3388.0   ,
+                                                 69720.0   ,
+                                                 57900.0   ,
+                                                 24540.0   ,
+                                                 25000.0   ,
+                                                  2200.0   ,
+                                                  1737.2   ,
+                                                696000.0   ,
+                                                  1735.0   ,
+                                                  1550.0   ,
+                                                  2500.0   ,
+                                                  2350.0     ) ;
+
+
+        FM : ARRAY [ 1..11 ] OF Double = ( 1.618816E14 ,
+                                           2.4250176E15 ,
+                                           2.975555451E15 ,
+                                           3.2082756E14 ,
+                                           9.4588956E17 ,
+          { KM*KM*KM/DAY/DAY }             2.8306158E17 ,
+                                           4.3321343E16 ,
+                                           5.2449346E16 ,
+                                           2.4767886E15 ,
+                                           2.659801E13  ,
+                                           9.9071556E20   ) ;
+
+Type
+
+
+
+ ObjectType =
+
+          Record
+
+	    X       ,
+	    Y       : Single ; { äÆÆp§®≠†‚Î ¢ ØÆ´• ßp•≠®Ô, ¨¨.   }
+	    M       : Byte   ; { ( MV + 5 ) * 10                 }
+            Sp      : Byte   ; { Sp                              }
+	    NRecC   : LongInt; { çÆ¨•p ¢ ®·ÂÆ§≠Æ¨ §¢. ™†‚†´Æ£•
+                                 + Marking * 1000000000 }
+                               { Ç®§®¨Æ·‚Ï Æ°'•™‚† : NRecC > 0 }
+          End;
+
+ ObjectArrType = Array [0..ObjectBlockSize-1] of ObjectType;
+ ObjectPtrType = ^ObjectArrType;
+
+         {  -----------  *  -----------  }
+
+
+
+ PlanetType = Record
+                X ,
+                Y ,
+	        R ,                   { Topocentric distance in KM }
+                M          : Double ;
+                Nr         : Word   ;
+                D       ,             { Diameter in mm. }
+                D_IZO   ,             { Diameter in mm. for izo }
+                CurrentD,             { Diameter for Glass operation }
+                F       ,
+                P          : Double ; { Phase and pos. angle }
+                SX      ,
+                SY         : Integer;
+                SR         : Word   ;
+                Visible ,
+                NowVisible : Boolean;
+              End ;
+
+
+         {  -----------  *  -----------  }
+
+
+
+
+SatellitType = Record
+                   X ,
+                   Y ,
+	           R ,                    { Topocentric distance  km. }
+                   FL         : Double;   { W / CM / CM               }
+                   Nr         : Byte;
+                   Visible ,
+                   NowVisible : Boolean;
+               End ;
+
+
+         {  -----------  *  -----------  }
+
+
+
+SatElementType = Record
+                   T0    : Double  ; { ùèéïÄ ùãÖåÖHíéÇ Ç ûãàÄçëäàï Ñçüï     }
+                   NPl0  : Integer ; { HéåÖê ñÖHíêÄãúHéâ èãÄHÖíõ            }
+                   A     : Double  ; { ÅéãúòÄü èéãìéëú Ç KM.                }
+                   EKSC  : Double  ; { ùäëñÖçíêàëàíÖí                       }
+                   ISAT  : Double  ; { çÄäãéç éíçéëàíÖãúçé áÖåçéÉé ùäÇÄíéêÄ }
+                   OMG   : Double  ; { èêüåéÖ ÇéëïéÜÑÖçàÖ ÇéëïéÑüôÖÉé ìáãÄ  }
+                   OML   : Double  ; { êÄëëíéüçàÖ èÖêàñÖçíêÄ éí ìáãÄ        }
+                   M0    : Double  ; { ëêÖÑçüü ÄçéåÄãàü Ç ùèéïì T0.         }
+                   FL    : Double  ; { èéíéä éí ëèìíHàäÄ  W / M / M         }
+                   SSAT  : Double  ; { áîîÖäíàÇHÄü èãéôÄÑú àëá  M * M       }
+                 End ;
+
+
+         {  -----------  *  -----------  }
+
+
+
+ IndCatType = Record
+
+                NBeg          : Integer ;
+                NEnd          : Integer ;
+
+                RoDet         : Single  ;
+                NDet          : Integer ;
+
+                NStarInFild   : Integer ;
+                NoDetInFild   : Integer ;
+
+              END ;
+
+
+
+         {  -----------  *  -----------  }
+
+
+
+ MatrixCenterType = Record   { äééêÑàHÄíõ ñÖHíêÄ åÄíêàñõ Ç åå. }
+                      X      : Double ;
+                      Y      : Double ;
+                    End ;
+
+
+         {  -----------  *  -----------  }
+
+
+ DateType   = Record
+
+                Year  : LongInt;
+                Month : Byte;
+                Day   : Byte;
+
+              End;
+
+         {  -----------  *  -----------  }
+
+
+
+ TimeType   = Record
+
+                Hour  : Byte;
+                Min   : Byte;
+                Sec   : Double;
+
+              End;
+
+
+         {  -----------  *  -----------  }
+
+
+
+ AngularType = Record
+
+                Neg   : Boolean;
+                Deg   : Integer;
+                Min   : Byte   ;
+                Sec   : Byte   ;
+
+              End;
+
+         {  -----------  *  -----------  }
+
+
+
+ ParVarType = Record
+
+
+                Date    : DateType    ;
+                Time    : TimeType    ;
+
+                Ra0     : AngularType ;
+                Dc0     : AngularType ;
+
+                ZOPT    : Double      ;  {              ( DEG. ) }
+
+                A0      : AngularType ;
+                Z0      : AngularType ;
+
+                M       : Double      ;  { MEAN ANOMALY ( DEG. ) }
+                H       : Double      ;  { ALTITUDE     ( KM.  ) }
+                VC      : Double      ;  { V->  CENTER  ( DEG. ) }
+                RC      : Double      ;  { V    CENTER  ( MM.  ) }
+                NST     : Integer     ;  {  äÆ´-¢Æ ß¢•ß§  }
+                NPL     : Integer     ;  {         Ø´†≠•‚ }
+                MINT    : Double      ;  { ë‡•§≠. ®≠‚•≠·®¢≠Æ·‚Ï ¢ ØÆ´• }
+
+              End;
+
+         {  -----------  *  -----------  }
+
+
+
+ ParConstType = Record
+
+                 HA    : Double     ;  { H AP.  ( KM. ) }
+                 HP    : Double     ;  { H PER. ( KM. ) }
+                 I     : Double     ;  {        ( DEG.) }
+                 OMG   : Double     ;  {        ( DEG.) }
+                 DAOPT : Double     ;  {        ( DEG.) }
+
+                 WG,
+                 HG    : Double     ;  { èÆ´• ¢ £‡†§„·†Â }
+
+                 PERX,
+                 PERY,                 { å†‚‡®Ê† }
+                 PIXX,
+                 PIXY  : Double     ;  { å®≠„‚Î §„£® }
+                 NPX,
+                 NPY   : Integer    ;
+
+                End;
+
+
+ MaterikiType = Record
+
+                  X,Y,Z   : Integer ;  {  Round ( X ( km ) * 5 )        }
+                  BegReg  : Byte    ;  {  = 1 ≠† Ø•p¢Æ© ß†Ø®·® Æ°´†·‚®  }
+
+                End ;
+
+
+
+ REZARRAY    = Array [ 1..15 , 1..7 ] OF Double ;
+ PlCoordType = Array [ 1..15 , 1..3 ] OF Double ;
+
+
+ MaterikiArr = Array [ 1 .. 1200 ] Of MaterikiType ;
+ MaterikiPtr = ^MaterikiArr ;
+
+ DE200 = Array [ 1 .. 828 ] Of Double ;
+ DE200Ptr = ^DE200 ;
+
+ S70 = String [ 70 ] ;
+ S40 = String [ 40 ] ;
+
+ PT  = Record
+         X,
+         Y : Integer ;
+       End;
+
+         {  -----------  *  -----------  }
+
+
+
+  Var
+
+{ ************************************************
+    DF : Text ;
+  ************************************************ }
+
+
+    Materiki        : MaterikiPtr ;
+    DE200Buf        : DE200Ptr    ;
+
+    ObjectPtr	    : Array [0..ObjectMaxBlocksInit-1] of ObjectPtrType ;
+    BlockAllocFlag  : Array [0..ObjectMaxBlocksInit-1] of Boolean ; { î´†£ ¢Î§•´•≠ / ≠•‚ }
+
+    ObjectMaxBlocks : Integer ;
+    CBlock 	    : Word ;
+
+    IndCat          : Array [ 1..16 ] Of IndCatType ;
+
+    Planet 	    : Array [ 1..MaxPlanets   ] of     PlanetType ;
+    Satellit        : Array [ 1..MaxSatellits ] of   SatellitType ;
+    SatElements     : Array [ 1..MaxSatellits ] of SatElementType ;
+
+
+
+    NoDetCdcExist                           : Boolean ;
+    NameCatExist, NameAddExist              : Boolean ;
+    NameCatTekExist, NameAddTekExist        : Boolean ;
+    NameCatCdcExist, NameCatTekCdcExist     : Boolean ;
+    EndProc, CalcFild                       : Boolean ;
+    ReCalc, ReCalcPlanets                   : Boolean ;
+
+    B_IRAS,
+    B_PPM, B_BS, B_HD, B_Gcvs, B_GSC, B_Cdc,
+    B_COLOR_PPM , B_SURF, B_GEOC, B_STAC,
+    B_Import_Fld, B_IMPORT_Sat, B_EXPORT,
+    Neg, B_NORM, B_MATRIX,
+    OPTRD, B_FOT_SYS,
+    NPOLFIX, OPTAH,
+    B_Stop_NoDet,
+    EndReadFile,
+    B_Det_Imp_Det,
+    B_Ef_Sat_Cheb,
+    B_Det_Imp,
+    B_Det_Cdc,
+    B_Cdc_Bin,
+    B_ObjOut,
+    B_X_Max,
+    B_Menu,
+    SortStarsInFild,
+    StarsInFild,
+    Start,
+    ExistDE200,
+    FlagDE200BufAlloc,
+    FlagMaterikiAlloc,
+    OptIzo,
+    Marking
+                                           : Boolean ;
+
+    DeclSig                                : Char    ;
+    UserKey                                : Char    ;
+
+    CatMax                                 : Byte    ;
+    POM_FLD                                : Byte    ;
+    CATREF, CATDET                         : Byte    ;
+    C_IMPORT, C_EXPORT, C_MATRIX           : Byte    ;
+    C_FOT_SYS                              : Byte    ;
+    CAT, SDS                               : Byte    ;
+    Sclass                                 : Byte    ;
+    SPECTR, NPOZ                           : Byte    ;
+
+    C_PPM, C_BS, C_Gcvs, C_GSC, C_Cdc,
+    C_IRAS, C_Hd                           : Single  ;
+
+
+    PointerWidth                           : Integer;
+    PointerWidth_Y                         : Integer;
+
+    LastObject                             : Integer ;
+    NWrite                                 : Integer ;
+    NPLOPT, NPL0                           : Integer ;
+    C_NORM                                 : Integer ;
+    PRDATE                                 : Integer ;
+    N_PIXEL_X, N_PIXEL_Y, N_MATRIX         : Integer ;
+    EPJ, EPM                               : Integer ;
+    MON, HH, IMIN, ISEK, INOD, JNOD        : Integer ;
+    MONTHDATE                              : Integer ;
+    NPL, NPLSUM, JSTARMAX                  : Integer ;
+    DCG, JSTARBEG, JSTAREND, J             : Integer ;
+    NUMRA, NUMDEC, N1, N2, JRA, JDEC       : Integer ;
+    NFILDRA, NFILDDEC                      : Integer ;
+    NRAMAX, NDECMAX                        : Integer ;
+    NumberOfStars, NumberOfSatellits       : Integer ;
+{
+    NameOfDeclOld                          : Integer ;
+    NameOfDeclCdcOld                       : Integer ;
+}
+    NOS1                                   : Integer ;
+    IndC                                   : Integer ;
+    C_Det_Imp                              : Integer ;
+    Max_PL_PPLFLD                          : Integer ;
+    NPlSat                                 : Integer ;
+    NumPointMateriki                       : Integer ;
+
+    TFont                                  : Word    ;
+
+    NSTEPSAT, NVAR, NOF, NGrImport         : Word    ;
+    NRecObjectOutFile                      : Word    ;
+    NRecObjectOutFileOld                   : Word    ;
+
+    NSat,
+    NMarkingStars,
+    TimerHOUR, TimerMIN,
+    TimerSEC, TimerSEC100                  : Word    ;
+
+
+
+    PPM,
+    SAO,
+    SizeOvr,
+    YEARDATE,
+    IrasRecNo,
+    NameOfDecl,
+    NameOfDeclCdc,
+    NGrImportBeg,
+    IFirst, ILast,
+    N, JSTAR, JNBEG, JNEND, YEAR,
+    NUMSTAR, NBEG, NEND, NRA, ND,
+    HHPO, MINPO,
+    IRecPr, NNoDetCdcSum, NDetCdcMultSum,
+    NDMvACmDSC                             : LongInt ;
+
+
+    LONGS, KMD, DMvDet, RDetImp, DMvACmDSC : Single   ;
+
+
+
+    XSun,
+    YSun,
+    ZSun,
+    CRoEarNuit,
+    CRoSunNuit,
+    SSPO,
+    FMFG,
+    POZNP, SPOZNP, CPOZNP,
+    PozPolMoon,
+    XMAX,YMAX,
+    RRX , RRY,
+    STEPXNOD  , STEPYNOD,
+    XMAXGR, YMAXGR,
+    LSUN,
+    FLMIN, FD,
+    AOPT, SHOPT, CHOPT,
+    FIS, SFIS, CFIS,
+    SGRINV ,
+    FISGEOC, SFISGEOC, CFISGEOC,
+    FISASTRON, SFISASTRON, CFISASTRON,
+    LongSAstron, Alt,
+    ROSUN, ROMON,
+    POZSUN, POZMON,
+    SSATEF,
+    XMaxImp,
+    DMvOScr,
+    FL, INDEX                               : Double ;
+    JdAk                                    : Double ;
+    JdBegDE200, JdEndDE200                  : Double ;
+    DJDTimer , JDTimer1, JDTimer2           : Double ;
+    T, JDATE0                               : Double ;
+    RAOPTPARAM, RAOPTS                      : Double ;
+    DECLOPTPARAM                            : Double ;
+    R_PLANET_OPT                            : Double ;
+    ROS_PLANET_OPT                          : Double ;
+    M                                       : Double ;
+    LX, LY                                  : Double ;
+    EPD, RSUN0, RMON0, HOPT0, AOPT0         : Double ;
+    DAOpt0, DHOpt0                          : Double ;
+    ISAT0, OMG0, OML0, M00                  : Double ;
+    HAP0, HPER0                             : Double ;
+    ARGLAT0, ARGLAT                         : Double ;
+    ISAT, OMG, OML, M0, HAP, HPER, A0, EKSC : Double ;
+    PI2, PID2                               : Double ;
+    RO,  SROMAX, CROMAX, CRO, SRO           : Double ;
+    DAY                                     : Double ;
+    XS, YS, ZS, VXS, VYS, VZS               : Double ;
+    RAEAR, DECLEAR                          : Double ;
+    RASUN, DECLSUN                          : Double ;
+    RAMON, DECLMON                          : Double ;
+    LSatSelenogr, BSatSelenogr              : Double ;
+    XSAE, YSAE, ZSAE                        : Double ;
+    DT,DT2,DT3,T2,S1,S2,S3,C1,C2,C3         : Double ;
+    X, Y, Z, XX, YY, ZZ                     : Double ;
+    RAOPTFLD    , DECLOPTFLD ,
+    SDECLOPTFLD , CDECLOPTFLD,
+    SRAOPTFLD   , CRAOPTFLD                 : Double ;
+    MUX, MUY, XMU, YMU,
+    SP, CP, SG, CG, DTMU                    : Double ;
+    CONSTDSINGSC, STEPGscRAD                : Double ;
+    CONSTDSINCdc, STEPCdcRAD                : Double ;
+    FL1, FL2                                : Double ;
+
+
+    RRN, Mv, BmV,
+    R1, R2,
+    FLDX, FLDY,
+    ROV, ROS,
+    XXV, YYV, ZZV,
+    RAV, DECLV,
+    P,S, CS, SS,
+    SRAV, CRAV, SDECLV, CDECLV,
+    XXS, YYS, ZZS,
+    XSAT, YSAT, ZSAT, RSAT,
+    VXSAT, VYSAT, VZSAT, MTSAT,
+    RAS, DECLS,
+    SRAS, CRAS, SDECLS, CDECLS,
+    SLS, CLS,
+    SAV, CAV, SHV, CHV,
+    VOPT,
+    HOPT,
+    SAOPT, CAOPT,
+    XOPT, YOPT, ROPT,
+    SDECLOPT, CDECLOPT, CTOPT, STOPT,
+    SRAOPT, CRAOPT, RAOPT, DECLOPT, TOPT,
+    RAOPTVAR, DECLOPTVAR,
+    SRAOPTOLD, CRAOPTOLD, SDECLOPTOLD, CDECLOPTOLD,
+    SDECLEAR, CDECLEAR,
+    SDECLSUN, CDECLSUN,
+    SRASUN,   CRASUN,
+    SDECLMON, CDECLMON,
+    CROSUN,    CROMON,    CROEAR,
+    CROSUNMAX, CROMONMAX, CROEARMAX,
+    A, H, SD, CD, SR, CR,
+    SRA, CRA, SH, CH, SA, CA,
+    DHMAX, SHMIN, SHMAX,
+    ST, CT, SDA, CDA, SPOZ, CPOZ, TGRO,
+    XST, YST, ROMAX,
+    RASTAR, DECLSTAR,
+    RAPL,   DECLPL,
+    AV, HV,
+    SPOZVOPT, CPOZVOPT,
+    SDAVOPT , CDAVOPT ,
+    SROVOPT , CROVOPT ,
+    STIME,  SSTIME, CSTIME,
+    TV, STV, CTV,
+    DECMIN, DECMAX,
+    SDECLOPTMIN, SDECLOPTMAX,
+    DAYDATE,
+    STEPRAD,
+    R90, R359, R360, RR, ADECC,
+    DECCKR, SDD,
+    RAMIN, RAMAX,
+    RAMIN1, RAMAX1, RAMIN2, RAMAX2,
+    R0, DRA, DECTEK,
+    SRAFILD, CRAFILD, SDECFILD, CDECFILD,
+    SDRA, CDRA, SDDEC, CDDEC,
+    XNOD, YNOD, ANOD, HNOD,
+    TNOD, RANOD, DECLNOD, LNOD, BNOD,
+    SANOD,  CANOD,    SHNOD,    CHNOD,
+    STNOD,  CTNOD,
+    SRANOD, CRANOD, SDECLNOD, CDECLNOD,
+    SLNOD,   CLNOD,    SBNOD,    CBNOD,
+    EPS, SEPS, CEPS, SLSUN, CLSUN,
+    STEPXNODMM, STEPYNODMM,
+    SMR, CMR, SMD, CMD,
+    SRAST, CRAST, SDECST, CDECST,
+    BAND, CONSTDSIN,
+    PERIOD_X_MIN  , PERIOD_Y_MIN ,
+    PERIOD_X_MM   , PERIOD_Y_MM  ,
+    PIXEL_X_MIN   , PIXEL_Y_MIN  ,
+    PIXEL_X_MM    , PIXEL_Y_MM   ,
+    PERXD2        , PERYD2       ,
+    PIXXD2        , PIXYD2       ,
+    X_MAX_MATRIX  , Y_MAX_MATRIX ,
+    R_PLANET,
+    NMEAN, TOMG0, TPER,
+    RAOPT2000, DCOPT2000, SEK,
+    JD0,  JDEP,
+    MvMax,
+    MvMaxIzo, MvMaxIzoFul, MvMaxParam,
+    MvMin,
+    MvMinIzo, MvMinIzoFul, MvMinParam      : Double    ;
+
+    JDATE,  JDATEFLD, STEPTIME, JDOut      : Double    ;
+
+
+
+    REZPL                                  : RezArray    ;
+    RectCoordPl                            : PlCoordType ;
+    DATEEL                                 : DateType    ;
+    TIMEEL                                 : TimeType    ;
+    Parconst                               : parconsttype;
+    Parvar                                 : parvartype  ;
+
+
+    MatrixCenter  : Array [ 1 .. 100 ] Of MatrixCenterType ;
+
+    Triangle      : Array [ 1 ..   4 ] Of PT ;
+
+    CatSort       : Array [ 1 ..  16 ] Of Boolean ;
+    DMv           : Array [ 1 ..  70 ] Of Single  ;
+    SinRaFild     : Array [ 1 .. 290 ] Of Double  ;
+    CosRaFild     : Array [ 1 .. 290 ] Of Double  ;
+    SinDecFild    : Array [ 1 .. 145 ] Of Double  ;
+
+    DMvDetGr      : Array [ 1 ..12 , 0 .. 6 ]  Of  Single  ;
+    NDMvDet       : Array [ 1 ..12 , 0 .. 6 ]  Of  LongInt ;
+
+
+    ImportStarFile       : File Of ObjectInputType  ;
+
+    OutStarFile          : File Of ObjectStringType ;
+    OutDetFile           : File Of ObjectStringType ;
+    ObjectString         :         ObjectStringType ;
+
+    DE200File            : File Of Double           ;
+
+
+    OUTFILE              : Text   ;
+    PARAMFILE            : Text   ;
+    SATFILE              : Text   ;
+    MATRIXFILE           : Text   ;
+    MaterikiFile         : Text   ;
+
+
+
+    WS, WS1              : String ;
+
+
+    OutStarString,
+    OutDetString,
+    OutDetStringOld      : ObjectStringType ;
+
+    ObjectFileName ,
+    ObjectOutFileName    : String [ 70 ] ;
+    OutFileName          : String [ 70 ] ;
+
+
+    KEYRECORD      : KEYTYPE  ;
+
+
+    PStr           : PathStr  ;
+    DStr           : DirStr   ;
+    NStr           : NameStr  ;
+    EStr           : ExtStr   ;
+    ExtFileAk      : ExtStr   ;
+
+    NameDir        : String [ 70 ]  ;
+    NameDirGscOld  : String [ 70 ]  ;
+    NameDirCdcOld  : String [ 70 ]  ;
+    CdcDir         : String [ 70 ]  ;
+    GscDir         : String [ 70 ]  ;
+    ObjectS        : String [ 10 ]  ;
+
+    ParamFileName  : String [ 70 ]  ;
+    NVarDir        : String [ 70 ]  ;
+    NumbParamFile  : String [ 70 ]  ;
+    SatFileName    : String [ 70 ]  ;
+    MatrixFileName : String [ 70 ]  ;
+    PPMDir         : String [ 70 ]  ;
+    BsDir          : String [ 70 ]  ;
+    HdDir          : String [ 70 ]  ;
+    GcvsDir        : String [ 70 ]  ;
+    IrasDir        : String [ 70 ]  ;
+    SatDir         : String [ 70 ]  ;
+    MatDir         : String [ 70 ]  ;
+
+    PPMFileName           ,
+    PPMKeyFileName        ,
+    BsFileName            ,
+    BsKeyFileName         ,
+    HdFileName            ,
+    HdKeyFileName         ,
+    GcvsFileName          ,
+    GcvsKeyFileName       ,
+    CdcFileName           ,
+    CdcStarFileName       ,
+    CdcStarFileNameOld    ,
+    CdcKeyFileName        ,
+    IrasFileName          ,
+    IrasKeyFileName       ,
+    GSCFileName           ,
+    GSCAddFileName        ,
+    GSCKeyFileName           : String [ 70 ]  ;
+
+    PPMFile        : File of PPMType           ;
+    PPMKeyFile     : File of          KeyType  ;
+    BsFile         : File of BSType            ;
+    BsKeyFile      : File of          KeyType  ;
+    HdFile         : File of HdType            ;
+    HdKeyFile      : File of          KeyType  ;
+    GcvsFile       : File of GcvsType          ;
+    GcvsKeyFile    : File of          KeyType  ;
+    CdcFile        : File of CdcType           ;
+    CdcKeyFile     : File of          KeyType  ;
+    IrasFile       : File of IrasType          ;
+    IrasKeyFile    : File of          KeyType  ;
+    GSCFile        : File of GSCType           ;
+    GSCAddFile     : File of GSCAddType        ;
+    GSCKeyFile     : File of          KeyType  ;
+
+    ObjectFile     :                     Text  ;
+    ObjectOutFile  :                     Text  ;
+
+
+    PPMRecord            : PPMType             ;
+    PPMKeyRecord         :          KeyType    ;
+    BsRecord             : BSType              ;
+    HdKeyRecord          :          KeyType    ;
+    HdRecord             : HdType              ;
+    GcvsKeyRecord        :          KeyType    ;
+    GcvsRecord           : GcvsType            ;
+    CdcRecord            : CdcType             ;
+    CdcKeyRecord         :          KeyType    ;
+    IrasKeyRecord        :          KeyType    ;
+    IrasRecord           : IrasType            ;
+    BsKeyRecord          :          KeyType    ;
+    GSCRecord            : GSCType             ;
+    GSCAddRecord         : GSCAddType          ;
+    GSCKeyRecord         :          KeyType    ;
+    OFRecord             : ObjectInputType     ;
+
+
+
+
+{ Graphics variables }
+
+  Page     : Word         ;
+  Stop     : Boolean      ;
+  CenterX  ,
+  CenterY  ,
+  GScale   : Double       ;
+  XOrient  ,
+  YOrient  : Integer      ;
+
+{ Command-line checking }
+
+  Code     : Integer      ;
+  PtransOK : Boolean      ;
+
+ Implementation
+
+End.

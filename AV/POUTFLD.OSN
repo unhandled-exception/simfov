@@ -1,0 +1,1327 @@
+
+{$O+,F+}
+
+
+UNIT POutFld ;   { ÇõÇéÑ åÄíêàñõ áÄëÇÖíéä }
+                 { ====================== }
+
+
+  Interface
+
+    Uses   PVAR , V_CATAL, SCREEN, PProFld, PPreNew,
+           Dos, Check, CSpectra, Shell_X, Shell_Nr ;
+
+    Procedure ShellNRec ( Low , High : Integer );
+
+    Procedure OutFld ;
+
+    Procedure OutputFieldData;
+
+
+  Implementation
+
+Var
+  S, St, Stt         : String  [ 20 ] ;
+  cH, cM , cS, cS100 : Word           ;
+  cY, cMn, cD, cDW   : Word           ;
+
+  Ind, IndSer        : Integer       ;
+  NPF, Ipl           : Integer       ;
+  POut               : Boolean       ;
+  Rs                 : Single        ;
+  nx, ny             : Single        ;
+
+  Xp,Yp,Rp : Array [ 1 .. 15 ] Of Single ;
+
+
+
+
+
+Function DateString( d, m ,y : Word ) : S40 ;
+Var
+ s      : String [10];
+ t      : String [ 4];
+Begin
+     t:=''; s:='';
+     str(d:0, s); if length(s) = 1 then s:='0'+s;
+     str(m:0, t); if length(t) = 1 then t:='0'+t; s:=s+'.'+t; t:='';
+     str(y:4, t);                                 s:=s+'.'+t;
+     DateString := s;
+End ;
+
+Function TimeString( h, m ,s : Word ) : S40 ;
+Var
+ u      : String [ 8];
+ t      : String [ 2];
+Begin
+     t:=''; u:='';
+     str(h:0, u); if length(u) = 1 then u:='0'+u;
+     str(m:0, t); if length(t) = 1 then t:='0'+t; u:=u+':'+t; t:='';
+     str(s:0, t); if length(t) = 1 then t:='0'+t; u:=u+':'+t;
+     TimeString := u;
+End ;
+
+Function HourString( h, m : Word; s : Single ) : S40 ;
+Var
+ u      : String [12];
+ t      : String [ 6];
+ i      : Integer   ;
+Begin
+     t:=''; u:='';
+     str(h:0  , u); if length(u) = 1 then u:='0'+u;
+     str(m:0  , t); if length(t) = 1 then t:='0'+t; u:=u+' '+t; t:='';
+     str(s:6:3, t); for i:=1 to 6 do if t[i]=' ' then t[i]:='0';
+                                                   u:=u+' '+t;
+     HourString := u;
+End ;
+
+Function DegrString( n : Boolean; g, m : Word; s : Single ) : String ;
+Var
+ u      : String [12];
+ t      : String [ 6];
+ i      : Integer   ;
+Begin
+     t:=''; if n then u:='-' else u:='+';
+     str(g:0  , t); if length(t) = 1 then t:='0'+t; u:=u+t;
+     str(m:0  , t); if length(t) = 1 then t:='0'+t; u:=u+' '+t; t:='';
+     str(s:5:2, t); for i:=1 to 5 do if t[i]=' ' then t[i]:='0';
+                                                    u:=u+' '+t;
+     DegrString := u;
+End ;
+
+
+
+
+Procedure OutputFieldData;
+         {‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹}
+
+Var
+
+       R1, R2, MAl, MDel,
+       TT, N,
+       SA, CA,
+       SDecl, CDecl, TD   : Double        ;
+
+
+       OutNoDetCdc        : Boolean       ;
+       ora, odc           : Double        ;
+       cneg               : Boolean       ;
+       g, mnt             : Integer       ;
+       sec                : Single        ;
+
+Begin
+
+
+        OutNoDetCdc := False ;
+
+
+       { éíäêõíàÖ îÄâãÄ }
+       { ============== }
+
+
+       if ( Exist( OutFileName  ) )
+       then
+           Begin
+                Assign( OutFile    ,  OutFileName ) ;
+                Append( OutFile    ) ;
+           End
+       else
+           Begin
+                Assign  ( OutFile    ,  OutFileName ) ;
+                ReWrite ( OutFile );
+           End;
+
+
+
+       { ÇõÇéÑ ìëíÄçéÇéóçõï ÑÄççõï }
+       { ========================= }
+
+    If ( Not B_Det_Cdc )  Then
+     Begin
+
+       WriteLn  ( OutFile ) ;
+
+         { Header }
+         { ====== }
+
+       getdate ( cY, cMn, cD, cDW  );
+       gettime ( cH, cM , cS, cS100);
+
+       Writeln ( OutFile ) ;
+       WriteLn ( OutFile,  ' Created    ', DayOfWeek[cDW], '    ',
+                 DateString (cD, cMn, cY) , '   ', TimeString(cH, cM, cS) );
+
+       Writeln ( OutFile , ' ƒƒƒƒƒƒƒ'  ) ;
+       Writeln ( OutFile ) ;
+
+
+        { DATE }
+        { ==== }
+
+       Write    ( OutFile , '':30,  'Date   ');
+       With ParVar.Date Do
+       WriteLn  ( OutFile , DateString( Day, Month , Year ) );
+
+        { TIME }
+        { ==== }
+
+       Write    ( OutFile , '':30,  'UT     ' ) ;
+       With ParVar.Time Do
+       WriteLn  ( OutFile , TimeString(Hour, Min, Round(Sec) ) );
+
+       Writeln ( OutFile ) ;
+
+
+        { ORBITE }
+        { ====== }
+{ *****************************************************************
+       WriteLn  ( OutFile , 'Orbit parameters : ') ;
+       WriteLn  ( OutFile , ParConst.HA  : 12: 3 ) ;
+       WriteLn  ( OutFile , ParConst.HP  : 12: 3 ) ;
+       WriteLn  ( OutFile , ParConst.I   : 12: 3 ) ;
+       WriteLn  ( OutFile , ParConst.OMG : 12: 3 ) ;
+       WriteLn  ( OutFile , ParVar.M     : 12: 3 ) ;
+
+
+
+          é‡®•≠‚†Ê®Ô ÆØ‚®Á•·™Æ© Æ·®
+
+       WriteLn  ( OutFile , '  Orientation of optical axes : ') ;
+       WriteLn  ( OutFile , ParConst.DAOPT            :12:3 ) ;
+       WriteLn  ( OutFile , ParVar.ZOPT               :12:3 ) ;
+******************************************************************* }
+
+
+       { Coordinates of field center }
+       { =========================== }
+
+       R1 := ( JdOut - 2415020.5 ) / 365.2422 + 1900.0 ;
+       Str ( R1 :7:1, Stt ) ;
+
+       WriteLn  ( OutFile , '':29, 'FOV center (', Stt , ' )'  ) ;
+       Writeln  ( OutFile , '':29, 'ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ'  ) ;
+
+       with ParVar.Ra0 do
+            WriteLn  ( OutFile , '':30, 'R. A.  ', HourString(Deg, Min, Sec));
+       with ParVar.Dc0 do
+            WriteLn  ( OutFile , '':30, 'Decl  ', DegrString(Neg, Deg, Min, Sec));
+
+       Writeln ( OutFile ) ;
+
+
+        { ê†ß¨•‡Î ØÆ´Ô ß‡•≠®Ô }
+        { =================== }
+
+       WriteLn ( OutFile , '':29,'FOV size ( Degree )'  ) ;
+       Writeln ( OutFile , '':29,'ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ'  ) ;
+
+       WriteLn  ( OutFile , '':30, 'In X ', ParConst.HG / GScale : 12:3 ) ;
+       WriteLn  ( OutFile , '':30, 'In Y ', ParConst.WG / GScale : 12:3 ) ;
+
+       Writeln ( OutFile ) ;
+
+
+        {  Mv  }
+        {  ==  }
+
+       Writeln ( OutFile , '':29, 'MvFOV', MvMin : 6:1, MvMax:7:1 ) ;
+       Writeln ( OutFile , '':29, 'ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ'  ) ;
+       Writeln ( OutFile ) ;
+
+
+
+        { á†£Æ´Æ¢Æ™ }
+        { ========= }
+
+       Writeln ( OutFile ) ;
+
+       WriteLn  ( OutFile , '':6, 'Stars in FOV ( Coord.', Stt ,
+                            ' + P.M. J2000 -> Date ,  P.M.' , Stt,' )' );
+       Writeln ( OutFile, '':6,
+       'ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ' );
+       Writeln ( OutFile ) ;
+
+
+       Writeln ( Outfile , '': 5, 'R. A.', '':10, 'Decl.',
+                           '': 6, 'Mv'   , '': 3, 'Sp',
+                           '':27, 'PMRA' , '': 4, 'PMDcl' ) ;
+       Writeln ( OutFile ) ;
+
+     End
+    Else
+     Begin  { ÇÎ¢Æ§ ≠•Æ‚Æ¶§•·‚¢´•≠®© ä†p‚Î H•°† }
+            { --------------------------------- }
+
+
+       OutNoDetCdc := True ;
+
+       If  ( NoDetCdcExist )  Then
+
+         Begin
+
+
+           Writeln ( OutFile ) ;
+
+           If  ParVar.DC0.Neg
+             Then  Write ( OutFile, '- ' )
+             Else  Write ( OutFile, '+ ' ) ;
+
+           Write ( OutFile , ParVar.DC0.Deg : 2 ,
+                             ParVar.RA0.Deg : 4 ,
+                             ParVar.RA0.Min : 3 ,
+                             ExtFileAk      : 6   ) ;
+
+           Writeln ( OutFile ) ;
+
+           For IndC := 1 To CatMax Do
+             Begin { IndC }
+
+               IFirst := IndCat[ IndC ].NBeg ;
+               ILast  := IndCat[ IndC ].NEnd ;
+
+               Sclass := IndC ;
+
+               If ( SClass = CatCdc )  Then
+                 Begin
+
+                   If ( IFirst > -1 ) Then
+
+                   If ( CatSort [ IndC ] = False ) Then
+                     Begin
+                       ShellNr ( IFirst , ILast ) ;
+                     End ;
+
+
+                   IndSer := 1 ;
+
+                   For Ind := IFirst  To  ILast  Do
+
+                   With ObjectPtr [ Ind div ObjectBlockSize ]^
+                                  [ Ind mod ObjectBlockSize ] do
+
+                     Begin  { ObjectPtr }
+
+                       If ( Not (    ( Sp Div 10 = 7 )
+                                  Or ( Sp Div 10 = 5 ) )  )
+                         Then  { H•Æ‚Æ¶§•·‚¢´•≠≠Î• Cdc }
+                               { --------------------- }
+                           WriteLn ( OutFile ,
+                                 ( NRecC Mod 1000000000 ) Div 100000 ) ;
+
+                     End ;  { ObjectPtr }
+
+
+                 End ;  { CatCdc }
+
+             End ; { IndC }
+
+         End ;
+
+     End ;
+
+
+              {  Planets  &  Satellits  in  Field  }
+              {  ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ  }
+
+
+       If ( Not  OutNoDetCdc  )  Then
+       Begin  { Not  OutNoDetCdc }
+
+
+       IndSer := MaxPlanets ;
+       NPF    := 0          ;
+
+
+        For  Ind := 1 To  IndSer  Do
+        If ( Planet[Ind].NowVisible )  Then
+         Begin   { IndSatOut }
+
+           X := Planet [ Ind ] .X  ;
+           Y := Planet [ Ind ] .Y  ;
+
+           ScToId ( x, y, nx, ny);
+
+           POut := True ;
+
+           If ( Planet [ Ind ].Nr <= Max_PL_PPLFLD )  Then
+             Begin
+
+               For Ipl := 1 To NPF  Do
+                 Begin
+                   Rs := Sqrt ( Sqr ( NX - Xp [ Ipl ] ) +
+                                Sqr ( NY - Yp [ Ipl ] )    );
+                   If ( Rs + Planet [ Ind ].D_Izo / 2 < Rp [ Ipl ] )  Then
+                        POut := False ;
+                 End ;
+
+               If ( POut )   Then
+                 Begin
+                   NPF        := NPF + 1 ;
+                   Xp [ NPF ] :=  NX     ;
+                   Yp [ NPF ] :=  NY     ;
+                   Rp [ NPF ] := Planet [ Ind ].D_Izo / 2 ;
+                 End ;
+
+             End ;
+
+
+           If ( POut )  Then
+             Begin
+
+               IdToEq ( nx, ny, npolfix, spoznp, cpoznp, ora, odc );
+
+               PreNew ( JDateFld, JDOut, ORA, ODC ) ;
+
+                        { R.A. }
+                        { ---- }
+               radtohms ( ora, g, mnt,sec);
+               Write ( OutFile, ' ', HourString(g, mnt, sec) );
+
+                        { Decl }
+                        { ---- }
+               radtogms(odc,cneg,g,mnt,sec);
+               Write ( OutFile, '  ', DegrString(cneg, g, mnt, sec),'  ' );
+
+                         { Mv }
+                         { -- }
+               If ( Planet [ Ind ].Nr <= Max_PL_PPLFLD )
+                 Then  Write ( OutFile, Planet [ Ind ].M/10 - 5 : 5 : 1 )
+                 Else  Write ( OutFile, Planet [ Ind ].M        : 10    ) ;
+
+
+                        { à¨Ô }
+                        { --- }
+               If ( Planet [ Ind ].Nr > Max_PL_PPLFLD )
+                 Then
+                   Begin  { Satellit }
+                     Str ( Planet [ Ind ].Nr - Max_PL_PPLFLD : 3, St);
+                     St := 'Satellit' + St ;
+                   End
+                 Else
+                   Begin  { Planet }
+                     St := PlanetName [ Planet [ Ind ].Nr ] ;
+                     Write ( OutFile , '     ' ) ;
+                   End ;
+
+
+               Write ( OutFile , '       ' ) ;
+               Write ( OutFile , St ) ;
+
+               WriteLn  ( OutFile ) ;
+
+             End ;  { POut }
+
+         End ;  { IndSatOut }
+
+
+              {  Stars in Field  }
+              {  ƒƒƒƒƒƒƒƒƒƒƒƒƒƒ  }
+
+
+       TT := ( JDOut - 2451545.0 ) / 36525.0 ;
+       N  := ( 2004.3109  - 0.85330  * TT ) / 206264.806 ;
+
+       For IndC := 1 To CatMax Do
+         Begin { IndC }
+
+           IFirst := IndCat[ IndC ].NBeg ;
+           ILast  := IndCat[ IndC ].NEnd ;
+
+           Sclass := IndC ;
+
+
+           If ( IFirst > -1 ) Then
+
+             If ( CatSort [ IndC ] = False ) Then
+               Begin
+                 ShellX ( IFirst , ILast ) ;
+                 CatSort [ IndC ] := True ;
+               End ;
+
+
+             IndSer := 1 ;
+
+             For Ind := IFirst  To  ILast  Do
+
+               With ObjectPtr [ Ind div ObjectBlockSize ]^
+                              [ Ind mod ObjectBlockSize ] do
+
+                 Begin  { ObjectPtr }
+
+
+                   ScToId ( x, y, nx, ny);
+
+
+                    { èpÆ¢•p™† Ì™p†≠®pÆ¢†≠®Ô Ø´†≠•‚†¨® }
+                    { -------------------------------- }
+
+                   POut := True ;
+
+                   For Ipl := 1 To NPF  Do
+                     Begin
+                       Rs := Sqrt ( Sqr ( NX - Xp [ Ipl ] ) +
+                                    Sqr ( NY - Yp [ Ipl ] )    );
+                       If ( Rs < Rp [ Ipl ] )  Then
+                           POut := False ;
+                     End ;
+
+
+
+
+                   IF (     ( NRecC > 0                                )
+                        And (     ( NMarkingStars = 0                )
+                               Or (     ( NMarkingStars > 0        )
+                                    And ( NRecC Div 1000000000 = 1 ) ) )
+                        And ( POut )
+                                                                         )
+                   THEN
+
+                     Begin { VM > 0 }
+
+
+                      IdToEq ( nx, ny, npolfix, spoznp, cpoznp, ora, odc );
+                      PreNew ( JDateFld, JDOut, ORA, ODC ) ;
+
+                              { R.A. }
+                              { ---- }
+                      radtohms ( ora, g, mnt,sec);
+                      Write ( OutFile, ' ', HourString(g, mnt, sec) );
+
+                              { Decl }
+                              { ---- }
+                      radtogms(odc,cneg,g,mnt,sec);
+                      Write ( OutFile, '  ', DegrString(cneg, g, mnt, sec),'  ' );
+
+                               { Mv }
+                               { -- }
+                      Write ( OutFile, M/10 - 5 : 5 : 1 );
+
+
+                               { Sp }
+                               { -- }
+
+                      S := '    ' ;
+
+                      If (    ( Sclass = CatPPM )
+                           Or ( Sclass = CatBs  )
+                           Or ( Sclass = CatHd  )
+                                                  )  Then
+                        Begin
+
+                          S := '  ' + SpectraName [ Sp div 10 + 1 ];
+
+                          If Sp div 10 <> 7
+                            Then
+                              Begin
+                                str( Sp mod 10 : 1 , St );
+                                s := s + St ;
+                              End
+                            Else
+                                s := s + ' ' ;
+
+                        End ;
+
+                      Write ( OutFile, S );
+
+
+
+                           { èÆpÔ§™Æ¢Î© ≠Æ¨•p }
+                           { ---------------- }
+
+                     Write ( OutFile , IndSer : 5 , '   ' ) ;
+                     IndSer := IndSer + 1 ;
+
+
+                             { à¨Ô ™†‚†´Æ£† }
+                             { ------------ }
+
+                      Write ( OutFile, NameCatOut[Sclass] ) ;
+
+                      If  ( SClass = CatGsc )
+                        Then
+                          Begin
+                            If  ( SP Mod 10 = 0 )
+                              Then  S := '* '
+                              Else  S := '  ' ;
+                            Write ( OutFile, S ) ;
+                          End
+                        Else
+                            Write ( OutFile, '  ' ) ;
+
+
+
+                             { HÆ¨•p ß¢•ß§Î }
+                             { ------------ }
+
+                      If (     ( SClass <> CatGsc )
+                           And ( SClass <> CatCdc ) )
+                        Then
+                          Begin
+                            If ( SClass = CatPPM )  Then
+                              Begin
+                                Seek ( PPMFile , NRecC Mod 1000000000 ) ;
+                                Read ( PPMFile , PPMRecord ) ;
+                                NRecC := PPMRecord.PPM ;
+                              End ;
+
+                            If ( SClass = CatBs )  Then
+                              Begin
+                                Seek ( BsFile , NRecC Mod 1000000000 ) ;
+                                Read ( BsFile , BSRecord ) ;
+                                NRecC := BSRecord.Sao ;
+                              End ;
+
+                            Write ( OutFile,
+                                    NRecC Mod 1000000000 : 6 , '   ' ) ;
+
+                          End
+
+                        Else
+
+                          Begin  { Ñ†‚† ≠†°´Ó§•≠®© }
+                                 { --------------- }
+                            If ( SClass = CatGsc )  Then
+                              Begin
+
+                                If ( NRecC Mod 1000000000 < 0.01 )
+                                  Then  RR := 1951.5
+                                  Else  RR := ( NRecC Mod 1000000000 )
+                                              / 10.0 + 1970.0 ;
+                                  Str ( RR : 6:1, St ) ;
+                                  Write ( OutFile, St : 6 , '   ' )
+                              End
+                             Else
+                              Begin
+                                If ( NRecC > 0 )
+                                  Then RR := ( NRecC Mod 1000000000 )
+                                             / 1000 - 10
+                                  Else RR := 51.48  ;
+                                  Str ( RR + 1900 : 6:1, St ) ;
+                                  Write ( OutFile, St : 6 , '   ' )
+                              End ;
+                          End ;
+
+
+                             { Prop. Mou. }
+                             { ---------- }
+                      If (    ( Sclass = CatPPM )
+                           Or ( Sclass = CatBs  )
+                                                  )  Then
+                        Begin
+
+                          PreNew ( JDOut, J2000, ORA, ODC ) ;
+
+                          SA    := Sin ( ORa ) ;
+                          CA    := Cos ( ORa ) ;
+                          SDecl := Sin ( ODc ) ;
+                          CDecl := Cos ( ODc ) ;
+
+	                  TD    := SDecl / CDecl ;
+
+                          If ( SClass = CatPPM )  Then
+                            Begin
+                              MAl  := PPMRecord.MURA  / 0.6 / 1000000000.0 / CDecl;
+                              MDel := PPMRecord.MUDEC / 0.6 / 1000000000.0 ;
+                            End
+                           Else
+                            Begin
+                              MAl  := BSRecord.MURA  / 0.6 / 1000000000.0 / CDecl;
+                              MDel := BSRecord.MUDEC / 0.6 / 1000000000.0 ;
+                            End ;
+
+
+	                  R1 :=   N * MAL * TD * CA +
+                                  N * MDEL * SA / ( CDecl * CDecl ) +
+                                  2 * MAL * MDEL * TD ;
+
+	                  R2 := - N * MAL * SA  -  MAL * MAL * SDecl * CDecl ;
+
+	                  MAL  := MAL  + R1 * TT ;
+	                  MDEL := MDEL + R2 * TT ;
+
+                          MAl  := MAl * 206264.806 / 15.0 ;
+                          MDel := MDel * 206264.806 ;
+
+                          Write ( OutFile , Mal : 9:4, MDel:8:3 ) ;
+
+                        End ;
+
+
+                      WriteLn ( OutFile );
+
+                     End ; { VM <> 0 }
+
+                 End; { ObjectPtr }
+
+         End ; { IndC }
+
+       End ;  { Not  OutNoDetCdc }
+
+       Close( OutFile );
+
+
+End ;  { OutputFieldData }
+
+
+
+Procedure ShellNRec ( Low , High : Integer );
+         {‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹‹}
+
+var
+ n, ni, in1, j, l ,
+ i1, i2,
+ i1d, i1m, i2d, i2m,
+ k1, k2             : integer   ;
+ key1, key2         : LongInt   ;
+ dummy              : objecttype;
+ ordered            : boolean   ;
+begin
+
+ n := high - low + 1;
+ if ( n > 1 ) then
+ begin
+
+  ni:=1;
+  while ( 9 * ni < n ) do ni:= 3 * ni + 1;
+
+  while ( ni >= 1 ) do
+  begin
+   in1 := ni + 1;
+   for j:=in1 to n do
+   begin
+    l:= j - ni;
+    ordered:=false;
+
+    while ( l >= 1 ) AND NOT ordered do
+    begin
+
+      i1 := l + low - 1      ;
+      i2 := l + low - 1 + ni ;
+
+      i1d := i1 div objectblocksize ;
+      i1m := i1 mod objectblocksize ;
+
+      i2d := i2 div objectblocksize ;
+      i2m := i2 mod objectblocksize ;
+
+      key1:=objectptr[i1d]^[i1m].NRecC ;
+      key2:=objectptr[i2d]^[i2m].NRecC ;
+
+      if ( key1 > key2 )  then
+       begin
+            { swap records }
+        dummy:= objectptr[i1d]^[i1m];
+        objectptr[i1d]^[i1m] :=  objectptr[i2d]^[i2m];
+        objectptr[i2d]^[i2m] := dummy;
+        l := l- ni;
+       end
+      else
+        ordered:=true;
+    end;
+   end;
+   ni := trunc(ni / 3 );
+  end;
+ end;
+End;
+
+
+
+
+
+  Procedure  OutFld;
+            {‹‹‹‹‹‹}
+
+     Label 777 ;
+
+     Var
+
+                { äéÑàêéÇäÄ ùãÖåÖHíéÇ  åÄíêàñ }
+                { --------------------------- }
+                {    126 * ( 4100 * 4100 )    }
+
+       { ( NumMatrix * 4100 + NumPixX ) * 4100 + NumPixY }
+       { ----------------------------------------------- }
+
+       NumPixel                                  : LongInt ;
+
+       Matrix_FInd                               : Boolean ;
+
+       SClassOut                                 : Byte    ;
+
+       IndOut , IndCOut, IndConstOut             : LongInt ;
+       NumPixelY, NumPixelX, IndF                : Integer ;
+       IndSatOut, NumMatrix                      : LongInt ;
+       NPPMBeg, NPPMEnd                          : LongInt ;
+
+       XXOut, YYOut, FFOut                       : Double  ;
+       X_Matrix_Center, Y_Matrix_Center          : Double  ;
+       XPixelOut, YPixelOut                      : Double  ;
+
+       Ra, Dc                                    : Double  ;
+
+       NumStr                                    : String  [  5 ] ;
+
+
+
+
+     Begin  { Pro OutFld }
+
+
+(*  ***********************************************************
+
+
+       { îéêåàêéÇÄHàÖ àåÖHà îÄâãÄ à éíäêõíàÖ îÄâãÄ }
+       { ========================================= }
+
+
+
+       OutFileName := 'Out' ;
+
+
+            { HéåÖê òÄÉÄ }
+            { ---------- }
+
+       Str ( NStepSat:5, NumStr ) ;
+
+       For  IndF := 1 To 4 Do
+         If NumStr [ IndF ] = ' '  Then   NumStr [ IndF ] := '0' ;
+
+       OutFileName := OutFileName + NumStr + '.' ;
+
+
+          { HéåÖê ÇÄêàÄHíÄ }
+          { -------------- }
+
+
+       Str ( Nvar:3, NumStr ) ;
+
+       NumPixelY := 0 ;
+       If  NumStr [ 1 ] = ' '  Then  NumPixelY := 1 ;
+       If  NumStr [ 2 ] = ' '  Then  NumPixelY := 2 ;
+       If ( NumPixelY <> 0 )   Then   Delete ( NumStr , 1 , NumPixelY ) ;
+       OutFileName := OutFileName + NumStr ;
+
+
+
+       Assign    ( OutFile    ,  OutFileName ) ;
+       ReWrite   ( OutFile                   ) ;
+
+  ***************************************************************** *)
+
+
+
+       { éíäêõíàÖ îÄâãÄ }
+       { ============== }
+
+
+       if ( Exist( OutFileName  ) )
+       then
+           Begin
+                Assign( OutFile    ,  OutFileName ) ;
+                Append( OutFile    ) ;
+           End
+       else
+           Begin
+                Assign  ( OutFile    ,  OutFileName ) ;
+                ReWrite ( OutFile );
+           End;
+
+       WriteLn( OutFile );
+
+
+
+
+(* ******************************************************************
+
+
+       { ÇõÇéÑ ìëíÄçéÇéóçõï ÑÄççõï }
+       { ========================= }
+
+
+
+        { DATE }
+        { ==== }
+
+       Write    ( OutFile , ' Ñ†‚† '              ) ;
+       Write    ( OutFile , ParVar.Date.Year  : 5 ) ;
+       Write    ( OutFile , ParVar.Date.Month : 3 ) ;
+       WriteLn  ( OutFile , ParVar.Date.Day   : 3 ) ;
+
+
+
+        { TIME }
+        { ==== }
+
+       Write    ( OutFile , 'Çp•¨Ô '               ) ;
+       Write    ( OutFile , ParVar.Time.Hour : 4   ) ;
+       Write    ( OutFile , ParVar.Time.Min  : 3   ) ;
+       WriteLn  ( OutFile , ParVar.Time.Sec  : 5:1 ) ;
+
+
+
+        { ORBITE }
+        { ====== }
+
+       WriteLn  ( OutFile , 'ép°®‚† '       ) ;
+       WriteLn  ( OutFile , ParConst.HA  : 12: 3 ) ;
+       WriteLn  ( OutFile , ParConst.HP  : 12: 3 ) ;
+       WriteLn  ( OutFile , ParConst.I   : 12: 3 ) ;
+       WriteLn  ( OutFile , ParConst.OMG : 12: 3 ) ;
+       WriteLn  ( OutFile , ParVar.M     : 12: 3 ) ;
+
+
+
+        { é‡®•≠‚†Ê®Ô ÆØ‚®Á•·™Æ© Æ·® }
+        { ========================= }
+
+       { RA, DECL OPT. C. }
+
+       WriteLn  ( OutFile , 'é‡®•≠‚†Ê®Ô ÆØ‚®Á•·™Æ© Æ·® '  ) ;
+       WriteLn  ( OutFile , ParConst.DAOPT : 12:3 ) ;
+       WriteLn  ( OutFile , ParVar.ZOPT    : 12:3 ) ;
+
+
+
+        { ê†ß¨•‡Î ØÆ´Ô ß‡•≠®Ô }
+        { =================== }
+
+       WriteLn  ( OutFile , 'ê†ß¨•‡Î ØÆ´Ô ß‡•≠®Ô '  ) ;
+       WriteLn  ( OutFile , ParConst.HG  : 12:3      ) ;
+       WriteLn  ( OutFile , ParConst.WG  : 12:3      ) ;
+
+
+
+        { å†‚‡®Ê† }
+        { ======= }
+
+
+       WriteLn  ( OutFile , 'å†‚‡®Ê† '  ) ;
+       WriteLn  ( OutFile , ParConst.PERX : 12 : 3 ) ;
+       WriteLn  ( OutFile , ParConst.PERY : 12 : 3 ) ;
+       WriteLn  ( OutFile , ParConst.PIXX : 12 : 3 ) ;
+       WriteLn  ( OutFile , ParConst.PIXY : 12 : 3 ) ;
+       WriteLn  ( OutFile , ParConst.NPX  : 12 ) ;
+       WriteLn  ( OutFile , ParConst.NPY  : 12 ) ;
+
+  **************************************************************** *)
+
+
+       { ÇõÇéÑ ìëíÄçéÇéóçõï ÑÄççõï }
+       { ========================= }
+
+
+         { Header }
+         { ====== }
+
+       getdate ( cY, cMn, cD, cDW  );
+       gettime ( cH, cM , cS, cS100);
+
+       Writeln ( OutFile ) ;
+       WriteLn ( OutFile,  ' Created    ', DayOfWeek[cDW], '    ',
+                 DateString (cD, cMn, cY) , '   ', TimeString(cH, cM, cS) );
+
+       Writeln ( OutFile , ' ƒƒƒƒƒƒƒ'  ) ;
+       Writeln ( OutFile ) ;
+
+
+        { DATE }
+        { ==== }
+
+       Write    ( OutFile , '':24,  'Date   ');
+       With ParVar.Date Do
+       WriteLn  ( OutFile , DateString( Day, Month , Year ) );
+
+        { TIME }
+        { ==== }
+
+       Write    ( OutFile , '':24,  'UT     ' ) ;
+       With ParVar.Time Do
+       WriteLn  ( OutFile , TimeString(Hour, Min, Round(Sec) ) );
+
+       Writeln ( OutFile ) ;
+
+
+        { ORBITE }
+        { ====== }
+
+{ *****************************************************************
+
+       WriteLn  ( OutFile , 'Orbit parameters : ') ;
+       WriteLn  ( OutFile , ParConst.HA  : 12: 3 ) ;
+       WriteLn  ( OutFile , ParConst.HP  : 12: 3 ) ;
+       WriteLn  ( OutFile , ParConst.I   : 12: 3 ) ;
+       WriteLn  ( OutFile , ParConst.OMG : 12: 3 ) ;
+       WriteLn  ( OutFile , ParVar.M     : 12: 3 ) ;
+
+
+          é‡®•≠‚†Ê®Ô ÆØ‚®Á•·™Æ© Æ·®
+
+       WriteLn  ( OutFile , '  Orientation of optical axes : ') ;
+       WriteLn  ( OutFile , ParConst.DAOPT            :12:3 ) ;
+       WriteLn  ( OutFile , ParVar.ZOPT               :12:3 ) ;
+
+******************************************************************* }
+
+
+
+       { Coordinates of field center }
+       { =========================== }
+
+       R1 := ( JdOut - 2415020.5 ) / 365.2422 + 1900.0 ;
+       Str ( R1 :7:1, Stt ) ;
+
+       WriteLn  ( OutFile , '':23, 'FOV center (', Stt , ' )'  ) ;
+       Writeln  ( OutFile , '':23, 'ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ'  ) ;
+
+       with ParVar.Ra0 do
+            WriteLn  ( OutFile , '':24, 'R. A.  ', HourString(Deg, Min, Sec));
+       with ParVar.Dc0 do
+            WriteLn  ( OutFile , '':24, 'Decl  ', DegrString(Neg, Deg, Min, Sec));
+
+       Writeln ( OutFile ) ;
+
+
+        { ê†ß¨•‡Î ØÆ´Ô ß‡•≠®Ô }
+        { =================== }
+
+       WriteLn ( OutFile , '':23,'FOV size ( Degree )'  ) ;
+       Writeln ( OutFile , '':23,'ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ'  ) ;
+
+       WriteLn  ( OutFile , '':24, 'In X ', ParConst.HG / GScale : 12:3 ) ;
+       WriteLn  ( OutFile , '':24, 'In Y ', ParConst.WG / GScale : 12:3 ) ;
+
+       Writeln ( OutFile ) ;
+
+
+        {  Mv  }
+        {  ==  }
+
+       Writeln ( OutFile , '':23, 'MvFOV', MvMin : 6:1, MvMax:7:1 ) ;
+       Writeln ( OutFile , '':23, 'ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ'  ) ;
+       Writeln ( OutFile ) ;
+
+
+
+       WriteLn  ( OutFile , ' '  ) ;
+
+
+              {  Planets  in  Field  }
+              {  ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ  }
+
+
+       IndSer := MaxPlanets ;
+       NPF    := 0          ;
+
+       For  Ind := 1 To  IndSer  Do
+       If ( Planet[Ind].NowVisible )  Then
+         Begin   { IndSatOut }
+
+           X := Planet [ Ind ] .X  ;
+           Y := Planet [ Ind ] .Y  ;
+
+           ScToId ( x, y, nx, ny);
+
+           POut := True ;
+
+           If ( Planet [ Ind ].Nr <= Max_PL_PPLFLD )  Then
+             Begin
+
+               For Ipl := 1 To NPF  Do
+                 Begin
+                   Rs := Sqrt ( Sqr ( NX - Xp [ Ipl ] ) +
+                                Sqr ( NY - Yp [ Ipl ] )    );
+                   If ( Rs + Planet [ Ind ].D_Izo / 2 < Rp [ Ipl ] )  Then
+                        POut := False ;
+                 End ;
+
+               If ( POut )   Then
+                 Begin
+                   NPF        := NPF + 1 ;
+                   Xp [ NPF ] :=  NX     ;
+                   Yp [ NPF ] :=  NY     ;
+                   Rp [ NPF ] := Planet [ Ind ].D_Izo / 2 ;
+                 End ;
+
+             End ;
+
+
+         End ;  { IndSatOut }
+
+
+
+         { èpÆ·¨Æ‚p ä†‚†´Æ£Æ¢ }
+         { ================== }
+
+       For IndC := 1 To CatMax Do
+         Begin { IndC }
+               { ---- }
+
+         Sclass := IndC ;
+
+         NPPMBeg := IndCat [ IndC ].NBeg ;
+         NPPMEnd := IndCat [ IndC ].NEnd ;
+
+         If ( NPPMBeg > -1 ) Then
+         For IndCOut := NPPMBeg  To  NPPMEnd   Do
+
+           With ObjectPtr [ IndCOut Div ObjectBlockSize ]^
+                          [ IndCOut Mod ObjectBlockSize ] Do
+
+           Begin
+
+             If ( ReCalc )  Then
+
+               Begin
+
+                 XXOut := (  2.0 * X - ( sw.x2-sw.x1+1.0 ) ) *
+                                XMax / ( sw.x2-sw.x1+1.0 )     ;
+
+                 YYOut := ( -2.0 * Y + ( sw.y2-sw.y1+1.0 ) ) *
+                                YMax / ( sw.y2-sw.y1+1.0 )     ;
+
+               End
+
+              Else
+
+               Begin
+
+                 XXOut := X ;
+                 YYOut := Y ;
+
+               End ;
+
+
+             Matrix_FInd := False ;
+             NumMatrix   :=   1   ;
+
+                    { èpÆ¢•p™† Ì™p†≠®pÆ¢†≠®Ô Ø´†≠•‚†¨® }
+                    { -------------------------------- }
+
+             POut := True ;
+
+             For Ipl := 1 To NPF  Do
+               Begin
+                 Rs := Sqrt ( Sqr ( NX - Xp [ Ipl ] ) +
+                              Sqr ( NY - Yp [ Ipl ] )    );
+                 If ( Rs < Rp [ Ipl ] )  Then
+                     POut := False ;
+               End ;
+
+
+             While (     ( NumMatrix <= N_Matrix )
+                     And ( Not Matrix_FInd       )
+                     And ( POut                  )  ) Do
+
+               Begin
+
+                 X_Matrix_Center  :=  MatrixCenter [ NumMatrix ] . X  ;
+                 Y_Matrix_Center  :=  MatrixCenter [ NumMatrix ] . Y  ;
+
+                 If ( ( Abs ( XXOut - X_Matrix_Center ) <= X_Max_Matrix )
+                   And
+                      ( Abs ( YYOut - Y_Matrix_Center ) <= Y_Max_Matrix )  )
+                    Then
+                       Matrix_FInd := True
+                    Else
+                       NumMatrix := NumMatrix + 1 ;
+               End ;
+
+
+             If ( Matrix_FInd )  Then
+             Begin {Matrix_FInd }
+
+               XXOut   := XXOut - X_Matrix_Center ;
+               YYOut   := YYOut - Y_Matrix_Center ;
+
+               NumPixelX := 1 + Trunc ( (   XXOut + X_Max_Matrix )
+                                          / Period_X_mm ) ;
+               NumPixelY := 1 + Trunc ( (   YYOut + Y_Max_Matrix )
+                                          / Period_Y_mm ) ;
+
+               XPixelOut := - X_Max_Matrix + ( NumPixelX - 1 ) * Period_X_mm
+                                           +   PerXd2 ;
+
+               YPixelOut := - Y_Max_Matrix + ( NumPixelY - 1 ) * Period_Y_mm
+                                           +   PerYd2 ;
+
+
+               If (     ( Abs ( XXOut - XPixelOut ) <  PixXd2 )
+                  And
+                        ( Abs ( YYOut - YPixelOut ) <  PixYd2 ) )  Then
+                 Begin
+
+                  NumPixel := ( NumMatrix * 4100 + NumPixelX ) * 4100
+                                                 + NumPixelY ;
+                  NRecC    := ( NumMatrix * 4100 + NumPixelX ) * 4100
+                                                 + NumPixelY ;
+
+                  X := ( XXOut - XPixelOut ) / PixXd2 / 2 ;
+                  Y := ( YYOut - YPixelOut ) / PixYd2 / 2 ;
+
+                 End
+
+                Else  NRecC := 0 ;
+
+             End {Matrix_FInd }
+
+             Else
+
+                NRecC := 0 ;
+
+
+           End ; { With ObjectPtr }
+
+
+         End ; { IndC }
+               { ---- }
+
+
+
+
+
+
+           {  ÇõÇéÑ  Ç  îÄâã  }
+           {  --------------  }
+
+
+       ShellNRec ( 0 , NumberOfStars - 1 ) ;
+      {----------------------------------}
+
+       NumPixel := 0 ;
+
+       WriteLn  ( OutFile , ' Stars :  Coord.', Stt ,
+                            ' + P.M. J2000 -> Date' );
+       WriteLn ( OutFile ) ;
+
+       WriteLn ( OutFile, '  NMatr Nx   Ny    DxCp    DyCp   Mv Sp' ) ;
+       WriteLn ( OutFile ) ;
+
+
+       For IndC := 1 To CatMax Do
+         Begin { IndC }
+               { ---- }
+
+         Sclass := IndC ;
+
+         NPPMBeg := IndCat [ IndC ].NBeg ;
+         NPPMEnd := IndCat [ IndC ].NEnd ;
+
+
+         If ( NPPMBeg > -1 ) Then
+         For IndCOut := NPPMBeg  To  NPPMEnd   Do
+
+         With ObjectPtr [ IndCOut Div ObjectBlockSize ]^
+                        [ IndCOut Mod ObjectBlockSize ] Do
+
+           Begin
+
+             If ( NRecC > 0 )  Then
+
+             Begin  { áÇÖáÑÄ HÄ èàäëÖãÖ }
+                    { ----------------- }
+
+                 NumPixel  :=   NRecC ;
+
+                 NumPixelY :=   NumPixel Mod 4100 ;
+                 NumPixel  := ( NumPixel - NumPixelY ) Div 4100 ;
+                 NumPixelX :=   NumPixel Mod 4100 ;
+                 NumPixel  := ( NumPixel - NumPixelX ) Div 4100 ;
+                 NumMatrix :=   NumPixel Mod 4100 ;
+
+                 S := '   ' ;
+
+                 If (    ( Sclass = CatPPM )
+                      Or ( Sclass = CatBs  )
+                      Or ( Sclass = CatHd  )
+                                             )  Then
+                   Begin
+
+                     S := ' ' + SpectraName [ Sp div 10 + 1 ];
+
+                     If Sp div 10 <> 7
+                       Then
+                         Begin
+                           str( Sp mod 10 : 1 , St );
+                           s := s + St ;
+                         End
+                       Else
+                           s := s + ' ' ;
+                   End ;
+
+                 WriteLn ( OutFile , NumMatrix : 5,
+                                     NumPixelX : 5,
+                                     NumPixelY : 5,
+                                     X         : 8:3,
+                                     Y         : 8:3,
+                                     M/10-5    : 5:1,
+                                     S         : 3    ) ;
+
+             End ;  { áÇÖáÑÄ HÄ èàäëÖãÖ }
+                    { ----------------- }
+
+           End ;  { With }
+                  { ---- }
+
+         End ; { IndC }
+               { ---- }
+
+
+           { Satellits }
+           { --------- }
+
+
+ GOTO 777 ;  { éÅïéÑ ëèìíHàäéÇ èéäÄ HÖ êÖòÖH Çéèêéë é° MV Sat }
+             { ********************************************** }
+
+       If ( NumberOfSatellits > 0 )  Then
+
+         Begin   { Out Satellits }
+
+           For  IndSatOut := 1 To  NumberOfSatellits  Do
+
+             Begin   { IndSatOut }
+
+               XXOut := Satellit [ IndSatOut ] .X  ;
+               YYOut := Satellit [ IndSatOut ] .Y  ;
+               FFOut := Satellit [ IndSatOut ] .FL ;
+
+               NumPixelX := 1 + Trunc ( (   XXOut + XMax  ) / Period_X_mm ) ;
+               NumPixelY := 1 + Trunc ( ( - YYOut + YMax  ) / Period_Y_mm ) ;
+
+               XPixelOut  := - XMax + ( NumPixelX - 1 ) * Period_X_mm
+                                                        + PerXd2 ;
+
+               YPixelOut  :=   YMax - ( NumPixelY - 1 ) * Period_Y_mm
+                                                        - PerYd2 ;
+
+
+               If (     ( Abs ( XXOut - XPixelOut ) <  PixXd2 )
+                    And
+                        ( Abs ( YYOut - YPixelOut ) <  PixYd2 ) )  Then
+
+                 Begin  { In Pixel }
+
+                   IndOut  := IndConstOut +
+                              ( NumPixelY - 1 ) * N_Pixel_X +
+                                NumPixelX - 1 ;
+
+
+                 End ; { In Pixel }
+
+
+
+             End ;  { IndSatOut }
+
+         End ; { Out Satellits }
+ 777:;
+
+       WriteLn ( OutFile ) ;
+       Close   ( OutFile ) ;
+
+
+     End ;  { Pro OutFld }
+
+
+
+End.
+

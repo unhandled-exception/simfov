@@ -1,0 +1,36 @@
+
+F         2000
+
+
+StepRow    0.023
+StepCol    0.023
+StepDiam   0.001
+
+DRow     187
+DCol     121
+
+OCRow    188
+OCCol    121.5
+
+XStand = - Row
+YStand = - Col
+
+RedModelType    1 
+MaxErrSek     100
+
+
+DataObs  25 09 1995
+
+RAOC     20 16 00
+DclOC    37 57 43
+
+EpOC     1950
+
+
+ Row    Col
+ 114.0  129.0
+ 109.0  101.0
+ 117.0   94.0
+  28.0  136.0
+ 122.0  170.0
+ 185.0   97.0

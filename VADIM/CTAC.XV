@@ -1,0 +1,13 @@
+    310594  stac                        number and Name of the Satellite
+ 31 05 94                               Date
+ 23 07 07.361                           Moscow decret time
+ -0.207400967E+4                        X  in km      !
+ -0.421143611E+5                        Y             !    Absolut
+  0.118208293E-3                        Z             !    1975.0
+  0.307011848E+1                        VX in km/s    !    system    
+ -0.151269360E+0                        VY            !      
+  0.667369927E-1                        VZ            !
+    2530.                               mass  in kg                 - m
+      30.                               area  in m**2               - A
+       1.0                              coefficient of reflectance  - Cr
+      33                                number of the Days to prognoz

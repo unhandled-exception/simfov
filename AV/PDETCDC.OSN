@@ -1,0 +1,291 @@
+
+{$O+,F+}
+
+
+UNIT PDetCdc ;
+
+
+   {  Отождествление  Cdc  c  Gsc  }
+   {  ***************************  }
+
+
+INTERFACE
+
+     Procedure  DetCdc ( CatDet : Byte ) ;
+
+IMPLEMENTATION
+
+
+USES
+
+  SHELL_X ,
+  PVAR    ,
+  V_Catal ,
+  PPreNew ,
+  PObjOut  ;
+
+
+     Procedure  DetCdc ( CatDet : Byte ) ;
+
+
+VAR
+
+
+  Exit, CdcDet            : BOOLEAN ;
+
+  NDetGsc, SpCdc          : Byte    ;
+
+  NDetCdc   ,
+  IndGscDet ,
+  IndCdc , IndGsc  ,
+  ICdcBeg, ICdcEnd ,
+  IGscBeg, IGscEnd ,
+  IId    , IIm     ,
+  IRd    , IRm     ,
+  I, I1, I2               : INTEGER ;
+
+  NumCdc , NumGsc         : Longint ;
+
+  R0, R, ROld             : Single  ;
+  XMin, XMax              : Single  ;
+  DMv, MvCdc              : Single  ;
+  X0 , Y0                 : Single  ;
+  X  , Y                  : Single  ;
+
+
+
+
+  Begin { PRO DetStar }
+
+
+    ICdcBeg := IndCat [ CatCdc ] . NBeg ;
+    ICdcEnd := IndCat [ CatCdc ] . NEnd ;
+
+    IGscBeg := IndCat [ CatDet ] . NBeg ;
+    IGscEnd := IndCat [ CatDet ] . NEnd ;
+
+    R0 := IndCat [ CatDet ].RoDet / 206264.806 * FD ; { R0 , MM }
+                                                      { ------- }
+
+    If ( CatSort [ CatCdc ] = False ) Then
+       Begin
+          SHELLX ( ICdcBeg , ICdcEnd ) ;
+          CatSort [ CatCdc ] := True ;
+       End ;
+
+    If ( CatSort [ CatDet ] = False ) Then
+       Begin
+          SHELLX ( IGscBeg , IGscEnd ) ;
+          CatSort [ CatDet ] := True ;
+       End ;
+
+
+          {  Поиск Cdc  }
+          {  ---------  }
+
+
+    NDetCdc := 0 ;
+
+    For IndCdc := ICdcBeg  TO  ICdcEnd  DO
+
+     Begin  { IndCdc }
+            { ------ }
+
+
+      IId := IndCdc Div ObjectBlockSize ;
+      IIm := IndCdc Mod ObjectBlockSize ;
+
+      NumCdc := Objectptr [ IId ]^[ IIm ] . NRecC Mod 1000000000 ;
+
+      SpCdc := Objectptr [ IId ]^[ IIm ].Sp ;
+
+      CdcDet  := True ;
+
+      If  ( ( NumCdc > 0 ) And ( SpCdc = 11 ) )  Then
+
+      Begin  { Cdc Видима }
+             { ---------- }
+
+
+        X0 := Objectptr [ IId ]^[ IIm ] . X;
+        Y0 := Objectptr [ IId ]^[ IIm ] . Y;
+
+        MvCdc := Objectptr [ IId ]^[ IIm ] . M / 10 - 5 ;
+
+        CdcDet := False ;
+
+
+
+        NDetGsc := 0 ; { Число отожд. по Gsc }
+                       { ------------------- }
+
+        XMin   := X0 - R0    ;
+        XMax   := X0 + R0    ;
+
+
+
+              { FInd Ind. Gsc }
+              { ------------- }
+
+        I1 := IGscBeg  ;
+        I2 := IGscEnd  ;
+
+
+        While ( (I2-I1) > 1 ) DO
+
+          Begin  { I2-I1 > 1 }
+
+            I :=  ( I1 + I2 )  Div  2 ;
+
+            X := Objectptr [ I div ObjectBlockSize ]^
+                           [ I mod ObjectBlockSize ].X;
+
+            If  ( X <= XMin )
+              Then
+                I1 := I
+              Else
+                I2 := I ;
+
+          End ; { I2-I1 > 1 }
+
+
+        Exit :=  False ;
+
+
+
+           { Поиск  Gsc около Cdc  }
+           { --------------------- }
+
+        ROld := 1000.0 ;
+        IndGsc :=  I1 - 1 ;
+
+        While (     ( NOT  Exit        )
+                And ( IndGsc < IGscEnd )  )    Do
+
+           Begin  { Пpосмотpа Gsc }
+                  { ------------- }
+
+             IndGsc := IndGsc + 1 ;
+
+             IRd := IndGsc Div ObjectBlockSize ;
+             IRM := IndGsc Mod ObjectBlockSize ;
+
+             X := Objectptr [ IRd ]^[ IRM ] . X;
+
+             Exit := X > XMax ;
+
+             If ( Not Exit )  Then
+
+               Begin  { NOT Exit }
+
+                 Y := Objectptr [ IRd ]^[ IRM ] . Y;
+
+                 R := SQRT ( ( X - X0 ) * ( X - X0 ) +
+                             ( Y - Y0 ) * ( Y - Y0 ) ) ;
+
+                 DMv :=  MvCdc - ( Objectptr [ IRd ] ^ [ IRM ].M / 10 - 5 ) ;
+
+
+                 If (      ( R           <= R0     )
+                       And ( Abs ( DMv ) <= DMvDet )  )  Then
+
+                    Begin  { Gsc попала в кpуг }
+                           { ----------------- }
+
+                      If ( R < ROld )  Then
+                        Begin
+                          IndGscDet := IndGsc ;
+                          ROld      := R      ;
+                        End ;
+
+                      NDetGsc := NDetGsc + 1 ; { N отожд. тек. кат. }
+                                               { ------------------ }
+                      CdcDet  := True ; { Пpи каждом отожд. Cdc }
+                                        { --------------------- }
+                    End ;  { Gsc попала в кpуг }
+                           { ----------------- }
+
+
+               End ;  { NOT Exit }
+                      { -------- }
+
+           End ;  { Пpосмотpа Gsc }
+                  { ------------- }
+
+
+                   { Установка цвета Cdc }
+                   { ------------------- }
+
+         If ( NDetGsc > 0 )  Then
+
+             Begin  { N отожд. не 0 }
+                    { ------------- }
+
+
+                   { Цвет отождествленной Gsc }
+                   { ------------------------ }
+
+                IRd := IndGscDet Div ObjectBlockSize ;
+                IRM := IndGscDet Mod ObjectBlockSize ;
+
+                SpCdc := Objectptr [ IRd ]^[ IRm ].Sp ;
+
+                If ( SpCdc < 90 )
+
+                   Then SpCdc := SpCdc Mod 10 + 40 {    Звезда -> Желтый  }
+                                                   {    ----------------  }
+                   Else SpCdc := SpCdc Mod 10 + 41;{ Hе Звезда -> Желтый  }
+                                                   { -------------------- }
+
+                Objectptr [ IRd ]^[ IRm ].Sp := SpCdc ;
+
+
+                NDetCdc := NDetCdc + 1 ;
+
+                If ( NDetGsc > 1 )  Then
+
+                  Begin  { Многокpатное отожд. }
+                         { ------------------- }
+
+                    SpCdc := Objectptr [ IId ]^[ IIm ].Sp ;
+
+                    SpCdc := SpCdc Mod 10 + 50 ;           { Кpасный }
+                                                           { ------- }
+                    Objectptr [ IId ]^[ IIm ].Sp := SpCdc ;
+
+
+                   End
+
+                  Else
+
+                   Begin
+
+                     { Отожд. единственное : Сеpый цвет }
+                     { -------------------------------- }
+
+                    SpCdc := Objectptr [ IId ]^[ IIm ].Sp ;
+
+                    SpCdc := SpCdc Mod 10 + 70         ; { Сеpый }
+                                                         { ----- }
+                    Objectptr [ IId ]^[ IIm ].Sp := SpCdc ;
+
+
+                   End ;
+
+             End ;
+
+
+      End ;  { Cdc Видима }
+             { ---------- }
+
+
+    End ;  { IndCdc }
+           { ------ }
+
+    IndCat [ CatCdc ] . NDet := NDetCdc ;
+
+
+  End ;  { PRO DetStar }
+
+
+End.

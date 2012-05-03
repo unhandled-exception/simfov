@@ -1,0 +1,120 @@
+{ ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿ }
+{ ³                                                                ³ }
+{ ³    ASKYVIEW  Version 1.0a Copyright (c) 1992 by ASTROSOFT.     ³ }
+{ ³                                                                ³ }
+{ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ }
+
+{$F+,O+}
+
+Unit SSInfo;
+
+Interface
+
+Uses SSVar, TDialogs, TStdObj, Dos , TUtil ;
+
+
+Procedure SystemInformation;
+
+Implementation
+
+Procedure SystemInformation;
+Var
+
+  Dialog : PDialog;
+  Bruce  : PView;
+  R      : TRect;
+  ECode  : Word;
+
+  CurDir : String[69];
+  CurDrv : char;
+  DosVer,DV1, DV2 : String;
+
+  DSize,
+  DFree  : String;
+
+  PFS    : PathStr;
+
+  Regs   : Registers;
+
+  CoProc : String;
+
+  InW    : Word;
+
+begin
+
+  GetDir( 0, CurDir );
+  CurDrv :=  CurDir[1];
+
+  DosVer := '';
+
+  Str( Lo( DosVersion ) , DV1 );
+  Str( Hi( DosVersion ) , DV2 );
+
+  DosVer := DosVer + DV1 + '.' + DV2 ;
+
+  Str( DiskSize( 0 ) div 1024 : 8, DSize );
+  Str( DiskFree( 0 ) div 1024 : 8, DFree );
+
+  PFS := UpString( MainParamFileName );
+
+  With Regs do
+    begin
+
+      Intr( $11, Regs );
+      InW := AX Shr 1;
+      If ( InW mod 2 ) = 1 Then
+        CoProc := 'Co-processor : present.'
+          else
+            CoProc := 'Co-processor : not present.';
+
+    end;
+
+  R.Assign( 1, 1, 70, 15 );
+  Dialog := New( PDialog, Init( R, ' Information. ', jcCentered ));
+  With Dialog^ do
+    begin
+
+      R.Assign( 4,2,1,1 );
+      Bruce := New( PStaticText, Init( R,
+        'Current directory : ' + CurDir + #13 +
+        'Parameters file   : ' + PFS  + #13 +
+        #13#13) );
+      Insert( Bruce );
+
+      R.Assign( 4,5,1,1 );
+      Bruce := New( PStaticText, Init( R,
+        'ÄÄÄÄÄÄÄÄÄÄÄÄ Disk ' + CurDrv + ': ÄÄÄÄÄÄÄÄÄÄÄÄ' + #13 +
+        #13 +
+        '  Total on disk  : ' + DSize + ' K' + #13 +
+        '  Free           : ' + DFree + ' K' + #13 +
+        #13#13) );
+      Insert( Bruce );
+
+      R.Assign( 36,5,1,1 );
+      Bruce := New( PStaticText, Init( R,
+        '  ÄÄÄÄÄÄÄÄÄÄÄÄ DOS ÄÄÄÄÄÄÄÄÄÄÄ' + #13 +
+        #13 +
+        '   Version : ' + DosVer + #13 +
+        '   ' + CoProc + #13 +
+        #13 +
+        #13#13) );
+      Insert( Bruce );
+
+      R.Assign( 4,10,1,1 );
+      Bruce := New( PStaticText, Init( R,
+        'ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ'#13) );
+      Insert( Bruce );
+
+      R.Assign( 33, 12, 33 + 9, 13 );
+      Bruce := New( PButton, Init( R, '~O~k', bfDefault, cmOk ));
+      Insert( Bruce );
+
+      ECode := Run;
+
+    end;
+
+  Dispose( Dialog, Done );
+
+end;
+
+end.
